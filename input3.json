@@ -1,0 +1,32 @@
+{ 
+  "previous_schedule": { 
+    "T1": {"node": "N1", "start_time": 0}, 
+    "T2": {"node": "N2", "start_time": 1}, 
+    "T3": {"node": "N1", "start_time": 2} 
+  }, 
+  "events": [ 
+    { 
+      "type": "node_failure", 
+      "node": "N2", 
+      "time": 1 
+    }, 
+    { 
+      "type": "new_task", 
+      "task": { 
+        "id": "T4", 
+        "cpu": 2, 
+        "ram": 2, 
+        "deadline": 4, 
+        "duration": 1, 
+        "exec_cost": { 
+          "N1": 3, 
+          "N3": 2 
+        } 
+      } 
+    } 
+  ], 
+  "node_capacity_update": { 
+    "N1": {"2": 1},  
+    "N3": {"1": 2}   
+  } 
+}
