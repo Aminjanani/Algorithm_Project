@@ -68,14 +68,13 @@ private:
     vector<vector<Edge*>> g;
     vector<taskNode> tasks;
     vector<Node> nodes;
-    vector<int> nodeCaps;
     map<pair<string, string>, int> costs;
     map<string, string> assignedTasks;
     int numOfTasks, numOfNodes;
 
 public:
     mcmf(int n, int t, vector<Node>& N, vector<taskNode>& T,
-         map<pair<string, string>, int>& C, vector<int>& NC) : tasks(T), nodes(N), costs(C), nodeCaps(NC) {
+         map<pair<string, string>, int>& C) : tasks(T), nodes(N), costs(C) {
         numOfTasks = tasks.size();
         numOfNodes = nodes.size();
 
@@ -126,15 +125,13 @@ public:
                 delete g[taskID][i];
                 g[taskID][i] = nullptr;
                 pair<int, int> target = {taskID, i};
-                for (auto& p : paths) {
-                    if (p.first == target) {
-                        //pair<pair<int, int>, int> min_element = p;
-                        paths.erase(p);
+                for (auto it = paths.begin(); it != paths.end();) {
+                    if (it->first == target) {
+                        it = paths.erase(it);
+                    } else {
+                        ++it;
                     }
                 }
-                //auto lB = paths.lower_bound({target, INT_MIN});
-                //auto upB = paths.upper_bound({target, INT_MAX});
-                //paths.erase(lB, upB);
             }
         }
     }
@@ -146,7 +143,6 @@ public:
         }
 
         pair<pair<int, int>, int> min_element = *it;
-        //paths.erase(it);
         int taskId = min_element.first.first;
         removeUseLessEdges(taskId);
 
@@ -163,8 +159,7 @@ public:
     }
 
     pair<int, int> minCostMaxFlow() {
-        int min_cost = 0, max_flow = 0, counter = paths.size();
-        int x[10] = {0}, i = 0;
+        int min_cost = 0, max_flow = 0;
         while (!paths.empty()) {
             pair<pair<int, int>, int> res = findShortestPath();
             int taskId = res.first.first;
@@ -175,8 +170,6 @@ public:
             }
 
             min_cost += res.second;
-            x[i] = min_cost;
-            i++;
             max_flow++;
 
             if (g[0][taskId] != nullptr) {
@@ -261,19 +254,9 @@ int main() {
     }
 
     int n = Nodes.size(), t = taskNodes.size();
-    cout << "Number of Nodes: " << n << ", Number of Tasks: " << t << '\n';
-    vector<int> nodeCaps(n, 0);
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < t; j++) {
-            if (Nodes[i].cpu_cap >= taskNodes[j].cpu && Nodes[i].ram_cap >= taskNodes[j].ram) {
-                nodeCaps[i]++;
-            }
-        }
-    }
-
-    mcmf MF(n, t, Nodes, taskNodes, exec_cost_mp, nodeCaps);
-    //MF.displayPaths();
+    mcmf MF(n, t, Nodes, taskNodes, exec_cost_mp);
     auto result = MF.minCostMaxFlow();
+    
     cout << "min cost: " << result.first << ", max flow: " << result.second << '\n';
 
     auto assigned = MF.getAssginedTasks();
