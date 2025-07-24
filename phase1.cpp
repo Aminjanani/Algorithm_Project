@@ -18,9 +18,9 @@ struct taskNode {
     taskNode(int ID, string NAME, int CPU, int RAM, int DEADLINE) {
         id = ID;
         name = NAME;
-        cpu = CPU; 
-        ram = RAM;  
-        deadline = DEADLINE; 
+        cpu = CPU;
+        ram = RAM;
+        deadline = DEADLINE;
     }
 };
 
@@ -34,8 +34,8 @@ struct Node {
     Node(int ID, string NAME, int CPU_CAP, int RAM_CAP) {
         id = ID;
         name = NAME;
-        cpu_cap = CPU_CAP; 
-        ram_cap = RAM_CAP; 
+        cpu_cap = CPU_CAP;
+        ram_cap = RAM_CAP;
     }
 };
 
@@ -47,7 +47,7 @@ struct Edge {
     bool edgeExists = false;
 
     Edge(int TaskID, int NodeID, int COST, int CAP) {
-        cost = COST; 
+        cost = COST;
         capacity = CAP;
         taskId = TaskID;
         nodeId = NodeID;
@@ -63,79 +63,137 @@ struct comp {
 
 // min_cost-max_flow class
 class mcmf {
-    private:
-        set<pair<pair<int, int>, int>, comp> paths;
-        vector<vector<Edge*>> g;
-        vector<taskNode> tasks;
-        vector<Node> nodes;
-        vector<int> nodeCaps;
-        map<pair<string, string>, int> costs;
-        map<string, string> assignedTasks;
-        int numOfTasks, numOfNodes;
+private:
+    set<pair<pair<int, int>, int>, comp> paths;
+    vector<vector<Edge*>> g;
+    vector<taskNode> tasks;
+    vector<Node> nodes;
+    vector<int> nodeCaps;
+    map<pair<string, string>, int> costs;
+    map<string, string> assignedTasks;
+    int numOfTasks, numOfNodes;
 
-    public:   
-        mcmf(int n, int t, vector<Node>& N, vector<taskNode>& T,
-             map<pair<string, string>, int>& C, vector<int>& NC) : tasks(T), nodes(N), costs(C), nodeCaps(NC) {
-            numOfTasks = tasks.size(), numOfNodes = nodes.size();
-            g.resize(n + 1, vector<Edge*>(n + t + 2, nullptr));
-            for (int i = 1; i <= n; i++) {
-                g[0][i] = new Edge(0, i, 0, 1);
-            }
-            for (int i = 1; i <= n; i++) {
-                for (int j = n + 1; j <= n + t; j++) {
-                    addEdge(i - 1, j - n - 1, costs[{tasks[i - 1].name, nodes[j - n - 1].name}]);
-                    paths.insert({{i - 1, j - n - 1}, costs[{tasks[i - 1].name, nodes[j - n - 1].name}]});
-                }
-            }
-            for (int i = n + 1; i < n + t + 1; i++) {
-                g[i][n + t + 1] = new Edge(i, n + t + 1, 0, nodeCaps[i - t - 1]);
-            }
+public:
+    mcmf(int n, int t, vector<Node>& N, vector<taskNode>& T,
+         map<pair<string, string>, int>& C, vector<int>& NC) : tasks(T), nodes(N), costs(C), nodeCaps(NC) {
+        numOfTasks = tasks.size();
+        numOfNodes = nodes.size();
+
+        int totalSize = numOfTasks + numOfNodes + 2;
+        g.resize(totalSize, vector<Edge*>(totalSize, nullptr));
+
+        // Source edges to tasks
+        for (int i = 1; i <= numOfTasks; i++) {
+            g[0][i] = new Edge(0, i, 0, 1);
         }
-    
-        void addEdge(int tId, int nId, int cost) {
-            if (tasks[tId].cpu <= nodes[nId].cpu_cap && tasks[tId].ram <= nodes[nId].ram_cap) {
-                g[tId + 1][nId + tasks.size() + 1] = new Edge(tId, nId, cost, 1);
-            }
-        }
-        void removeUseLessEdges(int taskID) {
-            for (int i = numOfTasks + 1; i < numOfTasks + numOfNodes + 1; i++) {
-                if (g[taskID][i] != nullptr) {
-                    delete g[taskID][i];
-                    g[taskID][i] = nullptr;
-                    pair<int, int> target = {taskID, i};
-                    auto lB = paths.lower_bound({target, INT_MIN});
-                    auto upB = paths.upper_bound({target, INT_MAX});
-                    paths.erase(lB, upB);
+
+        // Edges from tasks to nodes
+        for (int i = 1; i <= numOfTasks; i++) {
+            for (int j = numOfTasks + 1; j <= numOfTasks + numOfNodes; j++) {
+                addEdge(i, j - numOfTasks, costs[{tasks[i - 1].name, nodes[j - numOfTasks - 1].name}]);
+                if (tasks[i - 1].cpu <= nodes[j - numOfTasks - 1].cpu_cap && tasks[i - 1].ram <= nodes[j - numOfTasks - 1].ram_cap) {
+                    paths.insert({{i, j}, costs[{tasks[i - 1].name, nodes[j - numOfTasks - 1].name}]});
                 }
             }
         }
-        pair<pair<int, int>, int> findShortestPath() {
+
+        // Node edges to sink
+        for (int i = numOfTasks + 1; i <= numOfTasks + numOfNodes; i++) {
+            g[i][numOfTasks + numOfNodes + 1] = new Edge(i, numOfTasks + numOfNodes + 1, 0, INT_MAX);
+        }
+    }
+
+    ~mcmf() {
+        for (auto& row : g) {
+            for (auto& edge : row) {
+                delete edge;
+                edge = nullptr;
+            }
+        }
+    }
+
+    void addEdge(int tId, int nId, int cost) {
+        if (tasks[tId - 1].cpu <= nodes[nId - 1].cpu_cap && tasks[tId - 1].ram <= nodes[nId - 1].ram_cap) {
+            int from = tId;
+            int to = nId + numOfTasks;
+            g[from][to] = new Edge(from, to, cost, 1);
+        }
+    }
+
+    void removeUseLessEdges(int taskID) {
+        for (int i = numOfTasks + 1; i <= numOfTasks + numOfNodes; i++) {
+            if (g[taskID][i] != nullptr) {
+                delete g[taskID][i];
+                g[taskID][i] = nullptr;
+                pair<int, int> target = {taskID, i};
+                for (auto& p : paths) {
+                    if (p.first == target) {
+                        //pair<pair<int, int>, int> min_element = p;
+                        paths.erase(p);
+                    }
+                }
+                //auto lB = paths.lower_bound({target, INT_MIN});
+                //auto upB = paths.upper_bound({target, INT_MAX});
+                //paths.erase(lB, upB);
+            }
+        }
+    }
+
+    pair<pair<int, int>, int> findShortestPath() {
+        auto it = paths.begin();
+        if (it == paths.end()) {
+            return {{-1, -1}, -1};
+        }
+
+        pair<pair<int, int>, int> min_element = *it;
+        //paths.erase(it);
+        int taskId = min_element.first.first;
+        removeUseLessEdges(taskId);
+
+        return min_element;
+    }
+
+    void displayPaths() {
+        while (paths.size()) {
             auto it = paths.begin();
             pair<pair<int, int>, int> min_element = *it;
+            cout << "(" << min_element.first.first << ", " << min_element.first.second << ")" << ", cost : " << min_element.second << '\n';
             paths.erase(it);
-            int taskId = min_element.first.first, nodeId = min_element.first.second, cost = min_element.second;
-            removeUseLessEdges(taskId);
-            return {{taskId, nodeId}, cost};
         }
-        pair<int, int> minCostMaxFlow() {
-            int min_cost = 0, max_flow = 0;
-            int n = nodes.size(), t = tasks.size();
-            while(!paths.size()) {
-                pair<pair<int, int>, int> res = findShortestPath();
-                int taskId = res.first.first, nodeId = res.first.second;
-                min_cost += res.second;
-                max_flow++;
-                //removeUseLessEdges(0);
-                delete g[0][taskId];
-                g[0][taskId] = nullptr;
-                removeUseLessEdges(taskId);
+    }
+
+    pair<int, int> minCostMaxFlow() {
+        int min_cost = 0, max_flow = 0, counter = paths.size();
+        int x[10] = {0}, i = 0;
+        while (!paths.empty()) {
+            pair<pair<int, int>, int> res = findShortestPath();
+            int taskId = res.first.first;
+            int nodeId = res.first.second;
+            
+            if (taskId == -1) {
+                break;
             }
 
-            return {min_cost, max_flow};
+            min_cost += res.second;
+            x[i] = min_cost;
+            i++;
+            max_flow++;
+
+            if (g[0][taskId] != nullptr) {
+                delete g[0][taskId];
+                g[0][taskId] = nullptr;
+            }
+
+            //removeUseLessEdges(taskId);
+            assignedTasks[tasks[taskId - 1].name] = nodes[nodeId - numOfTasks - 1].name;
         }
-        map<string, string> getAssginedTasks() {
-            return assignedTasks;
-        }
+
+        return {min_cost, max_flow};
+    }
+
+    map<string, string> getAssginedTasks() {
+        return assignedTasks;
+    }
 };
 
 int main() {
@@ -159,7 +217,7 @@ int main() {
         taskNodes.push_back(tn);
         num++;
     }
-    
+
     vector<Node> Nodes;
     json nodes = input["nodes"];
     for (int i = 0; i < nodes.size(); i++) {
@@ -172,11 +230,19 @@ int main() {
         num++;
     }
 
+    for (auto x : taskNodes) {
+        cout << x.name << " " << x.id << " " << x.cpu << " " << x.ram << " " << '\n';
+    }
+
+    for (auto x : Nodes) {
+        cout << x.name << " " << x.id << " " << x.cpu_cap << " " << x.ram_cap << '\n';
+    }
+
     json exec_cost = input["exec_cost"];
     map<pair<string, string>, int> exec_cost_mp;
-    for (auto s0 : T) {
-        for (auto s1 : N) {
-            exec_cost_mp[{s0, s1}] = -1;
+    for (auto& task_name : T) {
+        for (auto& node_name : N) {
+            exec_cost_mp[{task_name, node_name}] = INF;
         }
     }
 
@@ -188,7 +254,14 @@ int main() {
         }
     }
 
+    for (int i = 0; i < taskNodes.size(); i++) {
+        for (int j = 0; j < Nodes.size(); j++) {
+            cout << taskNodes[i].name << ", " << Nodes[j].name << " : " << exec_cost_mp[{taskNodes[i].name, Nodes[j].name}] << '\n';
+        }
+    }
+
     int n = Nodes.size(), t = taskNodes.size();
+    cout << "Number of Nodes: " << n << ", Number of Tasks: " << t << '\n';
     vector<int> nodeCaps(n, 0);
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < t; j++) {
@@ -199,7 +272,14 @@ int main() {
     }
 
     mcmf MF(n, t, Nodes, taskNodes, exec_cost_mp, nodeCaps);
-    cout << MF.minCostMaxFlow().first << " " << MF.minCostMaxFlow().second << '\n';
-    
+    //MF.displayPaths();
+    auto result = MF.minCostMaxFlow();
+    cout << "min cost: " << result.first << ", max flow: " << result.second << '\n';
+
+    auto assigned = MF.getAssginedTasks();
+    for (const auto& pair : assigned) {
+        cout << "Task " << pair.first << " assigned to Node " << pair.second << '\n';
+    }
+
     return 0;
 }
