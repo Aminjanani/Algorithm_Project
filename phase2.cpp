@@ -5,6 +5,8 @@ using namespace std;
 
 using json = nlohmann::json;
 
+const int INF = 1e9 + 7;
+
 struct taskNode {
     int id;
     string name;
@@ -79,11 +81,55 @@ int main() {
         taskNodes.push_back(tn);
     }
 
+    json exec_cost = input["exec_cost"];
+    map<pair<string, string>, int> exec_cost_mp;
+    for (auto& task_name : T) {
+        for (auto& node_name : N) {
+            exec_cost_mp[{task_name, node_name}] = INF;
+        }
+    }
+
+    for (auto i = exec_cost.begin(); i != exec_cost.end(); ++i) {
+        string s = i.key();
+        for (auto j = exec_cost[s].begin(); j != exec_cost[s].end(); ++j) {
+            pair<string, string> p = make_pair(s, j.key());
+            exec_cost_mp[p] = j.value();
+        }
+    }
+
     vector<int> timeStamps = input["time_slots"];
+    for (int i = 0; i < timeStamps.size(); i++) {
+        //cout << timeStamps[i] + 1 << ' ';
+    }
+    //cout << '\n';
 
-    map<map<string, int>, int> capacity_per_time_slot;
+    map<pair<string, int>, int> capacity_per_time_slot;
+    for (auto& [node, timeslot_capacity] : input["node_capacity_per_time"].items()) {
+        for (auto& [time_slot, cap] : timeslot_capacity.items()) {
+            int ts = stoi(time_slot);
+            capacity_per_time_slot[{node, ts}] = cap;
+            //cout << "Node: " << node <<  ", Time Slot: " << ts << ", Capacity: " << cap << '\n';
+        }
+    }
 
-    map<string, string> dependencies;
+    map<string, int> task_mp;
+    for (int i = 0; i < T.size(); i++) {
+        task_mp[T[i]] = i;
+        cout << "Task: " << T[i] << ", id: " << task_mp[T[i]] << '\n';
+    }
+
+    vector<vector<int>> dependency_graph(T.size(), vector<int>(T.size()));
+    //map<string, string> dependencies;
+    for (int i = 0; i < input["dependencies"].size(); i++) {
+        string bef = input["dependencies"][i]["before"];
+        string aft = input["dependencies"][i]["after"];
+        int bef_id = task_mp[bef];
+        int aft_id = task_mp[aft];
+        dependency_graph[bef_id][aft_id] = 1;
+        //dependencies[bef] = aft;
+
+        //cout << "You should first do the task " << bef << " before starting the task " << aft << '\n';
+    }
 
     return 0;
 }
