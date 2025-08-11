@@ -55,7 +55,7 @@ struct Edge {
     }
 };
 
-class timeExpendedMCMF {
+class timeExpandedMCMF {
 
 };
 
@@ -133,3 +133,4 @@ int main() {
 
     return 0;
 }
+
