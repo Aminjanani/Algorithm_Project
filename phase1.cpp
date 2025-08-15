@@ -13,7 +13,7 @@ struct taskNode {
     int cpu;
     int ram;
     int deadline;
-    vector<string> adj;
+    //vector<string> adj;
 
     taskNode(int ID, string NAME, int CPU, int RAM, int DEADLINE) {
         id = ID;
@@ -29,13 +29,16 @@ struct Node {
     string name;
     int cpu_cap;
     int ram_cap;
-    vector<string> adj;
+    pair<int, int> cap;
+    vector<int> adj;
 
     Node(int ID, string NAME, int CPU_CAP, int RAM_CAP) {
         id = ID;
         name = NAME;
         cpu_cap = CPU_CAP;
         ram_cap = RAM_CAP;
+        cap = {CPU_CAP, RAM_CAP};
+        adj = {};
     }
 };
 
@@ -92,6 +95,7 @@ public:
                 addEdge(i, j - numOfTasks, costs[{tasks[i - 1].name, nodes[j - numOfTasks - 1].name}]);
                 if (tasks[i - 1].cpu <= nodes[j - numOfTasks - 1].cpu_cap && tasks[i - 1].ram <= nodes[j - numOfTasks - 1].ram_cap) {
                     paths.insert({{i, j}, costs[{tasks[i - 1].name, nodes[j - numOfTasks - 1].name}]});
+                    nodes[j - numOfTasks - 1].adj.push_back(i - 1);
                 }
             }
         }
@@ -144,7 +148,28 @@ public:
 
         pair<pair<int, int>, int> min_element = *it;
         int taskId = min_element.first.first;
+
         removeUseLessEdges(taskId);
+
+        int i = min_element.first.first;
+        int j = min_element.first.second;
+        int new_cpu = nodes[j - numOfTasks - 1].cap.first - tasks[i - 1].cpu;
+        int new_ram = nodes[j - numOfTasks - 1].cap.second - tasks[i - 1].ram;
+        nodes[j - numOfTasks - 1].cap = {new_cpu, new_ram};
+        for (int k = 0; k < nodes[j - numOfTasks - 1].adj.size(); k++) {
+            int cpu = tasks[k].cpu;
+            int ram = tasks[k].ram;
+            if (cpu > new_cpu || ram > new_ram) {
+                pair<int, int> target = {k, j};
+                for (auto it = paths.begin(); it != paths.end();) {
+                    if (it->first == target) {
+                        it = paths.erase(it);
+                    } else {
+                        ++it;
+                    }
+                } 
+            }
+        }
 
         return min_element;
     }
@@ -206,9 +231,9 @@ int main() {
         int cpu = tasks[i]["cpu"];
         int ram = tasks[i]["ram"];
         int deadline = tasks[i]["deadline"];
-        taskNode tn(num, name, cpu, ram, deadline);
+        taskNode tn(num++, name, cpu, ram, deadline);
         taskNodes.push_back(tn);
-        num++;
+        //num++;
     }
 
     vector<Node> Nodes;
@@ -218,17 +243,9 @@ int main() {
         N.push_back(name);
         int cpu_cap = nodes[i]["cpu_capacity"];
         int ram_cap = nodes[i]["ram_capacity"];
-        Node node(num, name, cpu_cap, ram_cap);
+        Node node(num++, name, cpu_cap, ram_cap);
         Nodes.push_back(node);
-        num++;
-    }
-
-    for (auto x : taskNodes) {
-        cout << x.name << " " << x.id << " " << x.cpu << " " << x.ram << " " << '\n';
-    }
-
-    for (auto x : Nodes) {
-        cout << x.name << " " << x.id << " " << x.cpu_cap << " " << x.ram_cap << '\n';
+        //num++;
     }
 
     json exec_cost = input["exec_cost"];
@@ -247,22 +264,29 @@ int main() {
         }
     }
 
-    for (int i = 0; i < taskNodes.size(); i++) {
-        for (int j = 0; j < Nodes.size(); j++) {
-            cout << taskNodes[i].name << ", " << Nodes[j].name << " : " << exec_cost_mp[{taskNodes[i].name, Nodes[j].name}] << '\n';
-        }
-    }
-
     int n = Nodes.size(), t = taskNodes.size();
     mcmf MF(n, t, Nodes, taskNodes, exec_cost_mp);
     auto result = MF.minCostMaxFlow();
-    
+
     cout << "min cost: " << result.first << ", max flow: " << result.second << '\n';
 
-    auto assigned = MF.getAssginedTasks();
-    for (const auto& pair : assigned) {
+    auto assignments = MF.getAssginedTasks();
+    for (const auto& pair : assignments) {
         cout << "Task " << pair.first << " assigned to Node " << pair.second << '\n';
     }
+
+    json output;
+    output["assignments"] = json::object();
+    for (auto& p : assignments) {
+        output["assignments"][p.first] = p.second;
+    }
+
+    output["total_cost"] = result.first;
+
+    string outputFileName = "phase1_output.json";
+    ofstream ofile(outputFileName);
+    ofile << output.dump(2);
+    ofile.close();
 
     return 0;
 }
