@@ -72,7 +72,7 @@ private:
     vector<vector<int>> pq;
     vector<int> ts;
     //map<int, pair<int, int>> timeRange;
-    map<string, map<string, int>> assignedTasks;
+    map<string, pair<string, int>> assignedTasks;
 
 public:
     timeExpandedMCMF(vector<int> TS, 
@@ -106,32 +106,33 @@ public:
         return true;
     }
 
-    pair<pair<int, int>, int> findShortestPath() {
+    pair<pair<pair<int, int>, int>, int> findShortestPath() {
         auto it = paths.begin();
         if (it == paths.end()) {
-            return {{-1, -1}, -1};
+            return {{{-1, -1}, -1}, -1};
         }
 
         pair<pair<int, int>, int> min_element = *it;
         int taskId = min_element.first.first;
 
+        int timeSlot = taskId % nTS - 1;
 
-
-        return min_element;
+        return {min_element, timeSlot};
     }
-    
+
     pair<int, int> minCostMaxFlow() {
         int min_cost = 0, max_flow = 0;
         while (true) {
             bool flag = createPath();
             if (flag) {
-                pair<pair<int, int>, int> res = findShortestPath();
-                pair<pair<int, int>, int> target = {{-1, -1}, -1};
+                pair<pair<pair<int, int>, int>, int> res = findShortestPath();
+                pair<pair<pair<int, int>, int>, int> target = {{{-1, -1}, -1}, -1};
                 if (res == target) {
                     break;
                 }
-                int taskId = res.first.first;
-                int nodeId = res.first.second;
+                int taskId = res.first.first.first;
+                int nodeId = res.first.first.second;
+                int startTime = res.second;
                 
                 if (taskId == -1) {
                     break;
@@ -139,6 +140,8 @@ public:
 
                 min_cost += res.second;
                 max_flow++;
+
+                assignedTasks[tasks[int(taskId / nTS)].name] = {nodes[nodeId].name, startTime};
             }
         }
 
