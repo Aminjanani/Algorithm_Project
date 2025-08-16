@@ -55,8 +55,56 @@ struct Edge {
     }
 };
 
-class timeExpandedMCMF {
+struct comp {
+    bool operator()(const pair<pair<int, int>, int>& x, const pair<pair<int, int>, int>& y) {
+        return x.second < y.second;
+    }
+};
 
+class timeExpandedMCMF {
+private:
+    set<pair<pair<int, int>, int>, comp> paths;
+    vector<int> leastStart, mostStart;
+    vector<taskNode> tasks;
+    vector<Node> nodes;
+    map<pair<string, string>, int> costs;
+    int numberOfTasks, numberOfNodes, nTS;
+    vector<vector<int>> pq;
+    vector<int> ts;
+    //map<int, pair<int, int>> timeRange;
+    map<string, map<string, int>> assignedTasks;
+
+public:
+    timeExpandedMCMF(vector<int> TS, 
+                     vector<vector<int>> PQ, 
+                     vector<int> ls, 
+                     vector<int> ms): ts(TS), pq(PQ), leastStart(ls), mostStart(ms) {
+        numberOfTasks = tasks.size();
+        numberOfNodes = nodes.size();
+        nTS = ts.size();
+        /*for (int i = 0; i < numberOfTasks; i++) {
+            for (int j = 0; j < numberOfNodes; j++) {
+                paths.insert({{i + 1, j + (numberOfTasks * nTS) + 1}, costs[{tasks[i].name, nodes[j].name}]});
+            }
+        }*/
+    }
+public:
+    void createPath() {
+        vector<int> currentPriority = pq[pq.size() - 1];
+        pq.pop_back();
+        for (auto x : currentPriority) {
+            x--;
+            for (int i = leastStart[x]; i <= mostStart[x]; i++) {
+                for (int j = 0; j < numberOfNodes; j++) {
+                    paths.insert({{i + 1, j + (numberOfTasks * nTS) + 1}, costs[{tasks[i].name, nodes[j].name}]});
+                }
+            }
+        }
+
+    }
+    pair<int, int> minCostMaxFlow() {
+
+    }
 };
 
 int main() {
@@ -98,17 +146,12 @@ int main() {
     }
 
     vector<int> timeStamps = input["time_slots"];
-    for (int i = 0; i < timeStamps.size(); i++) {
-        //cout << timeStamps[i] + 1 << ' ';
-    }
-    //cout << '\n';
 
     map<pair<string, int>, int> capacity_per_time_slot;
     for (auto& [node, timeslot_capacity] : input["node_capacity_per_time"].items()) {
         for (auto& [time_slot, cap] : timeslot_capacity.items()) {
             int ts = stoi(time_slot);
             capacity_per_time_slot[{node, ts}] = cap;
-            //cout << "Node: " << node <<  ", Time Slot: " << ts << ", Capacity: " << cap << '\n';
         }
     }
 
@@ -120,7 +163,6 @@ int main() {
 
     vector<vector<int>> dependency_graph(T.size() + 1);
     vector<int> deg(T.size() + 1, 0);
-    //map<string, string> dependencies;
     for (int i = 0; i < input["dependencies"].size(); i++) {
         string bef = input["dependencies"][i]["before"];
         string aft = input["dependencies"][i]["after"];
@@ -128,65 +170,67 @@ int main() {
         int aft_id = task_mp[aft];
         deg[aft_id + 1]++;
         dependency_graph[bef_id + 1].push_back(aft_id + 1);
-        //dependencies[bef] = aft;
-
-        //cout << "You should first do the task " << bef << " before starting the task " << aft << '\n';
     }
 
-    for (int i = 1; i < T.size(); i++) {
+    for (int i = 1; i <= T.size(); i++) {
         if (deg[i] == 0) {
             dependency_graph[0].push_back(i);
         }
     }
 
     for (int i = 0; i < T.size(); i++) {
-        cout << i << ": {";
+        cout << i << ": ";
         for (auto x : dependency_graph[i]) {
             cout << x << " ";
         }
-        cout << "}\n";
+        cout << "\n";
     }
 
     vector<vector<int>> pq(T.size());
-    vector<bool> vis(T.size() + 1, false);
-    vector<int> dist(T.size() + 1);
-    int idx = 1;
+    vector<bool> visited(T.size() + 1, false);
+    vector<int> priority(T.size() + 1);
+    int idx = -1;
     auto bfs = [&](int root) {
-        vis[root] = true;
-        dist[root] = 0;
+        visited[root] = true;
+        priority[root] = 0;
         queue<int> q;
         q.push(root);
         while (q.size()) {
             int v = q.front();
             q.pop();
             for (auto x : dependency_graph[v]) {
-                if (!vis[x]) {
-                    vis[x] = true;
-                    dist[x] = dist[v] + 1;
-                    if (idx < dist[x]) {
-                        idx = dist[x];
+                if (!visited[x] || (visited[x] && priority[x] < priority[v] + 1)) {
+                    if (!visited[x]) {
+                        visited[x] = true;
                     }
-                    pq[dist[x] - 1].push_back(x);
+                    priority[x] = priority[v] + 1;
+                    idx = max(idx, priority[x]);
+                    pq[priority[x] - 1].push_back(x);
                     q.push(x);
                 }
             }
         }
     };
 
+    bfs(0);
+    
     int ext = T.size() - idx;
-    while (--ext) {
+    while (ext--) {
         pq.pop_back();
     }
 
-    bfs(0);
+    reverse(pq.begin(), pq.end());
+
     for (int i = 0; i < pq.size(); i++) {
         for (auto x : pq[i]) {
-            cout << x << " ";
+            cout << x << ", ";
         }
         cout << '\n';
     }
 
     cout << idx << '\n';
+
+    vector<state> schedulingGraph(T.size() + 1);
 
     return 0;
 }
