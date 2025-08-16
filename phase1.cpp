@@ -149,6 +149,8 @@ public:
         pair<pair<int, int>, int> min_element = *it;
         int taskId = min_element.first.first;
 
+        //cout << "cpu: " << tasks[min_element.first.first - 1].cpu << ", ram: " << tasks[min_element.first.first - 1].ram << '\n';
+
         removeUseLessEdges(taskId);
 
         int i = min_element.first.first;
@@ -156,11 +158,14 @@ public:
         int new_cpu = nodes[j - numOfTasks - 1].cap.first - tasks[i - 1].cpu;
         int new_ram = nodes[j - numOfTasks - 1].cap.second - tasks[i - 1].ram;
         nodes[j - numOfTasks - 1].cap = {new_cpu, new_ram};
+        //cout << "new cpu: " << new_cpu << ", new ram: " << new_ram << '\n';
         for (int k = 0; k < nodes[j - numOfTasks - 1].adj.size(); k++) {
+            //cout << "k: " << k << '\n';
             int cpu = tasks[k].cpu;
             int ram = tasks[k].ram;
+            //cout << "task cpu: " << cpu << ", task ram: " << ram << '\n';
             if (cpu > new_cpu || ram > new_ram) {
-                pair<int, int> target = {k, j};
+                pair<int, int> target = {k + 1, j};
                 for (auto it = paths.begin(); it != paths.end();) {
                     if (it->first == target) {
                         it = paths.erase(it);
@@ -187,12 +192,20 @@ public:
         int min_cost = 0, max_flow = 0;
         while (!paths.empty()) {
             pair<pair<int, int>, int> res = findShortestPath();
+            pair<pair<int, int>, int> target = {{-1, -1}, -1};
+            if (res == target) {
+                break;
+            }
             int taskId = res.first.first;
             int nodeId = res.first.second;
             
             if (taskId == -1) {
                 break;
             }
+
+            //cout << tasks[taskId - 1].name << " " << nodes[nodeId - numOfTasks - 1].name << '\n';
+            //cout << "remainig paths" << '\n';
+            //displayPaths();
 
             min_cost += res.second;
             max_flow++;
