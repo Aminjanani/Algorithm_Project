@@ -1,8 +1,8 @@
 #include <bits/stdc++.h>
 #include <optional>
 #include "json.hpp"
-using namespace std;
 
+using namespace std;
 using json = nlohmann::json;
 
 const int INF = 1e9 + 7;
@@ -89,21 +89,60 @@ public:
         }*/
     }
 public:
-    void createPath() {
+    bool createPath() {
         vector<int> currentPriority = pq[pq.size() - 1];
         pq.pop_back();
         for (auto x : currentPriority) {
             x--;
             for (int i = leastStart[x]; i <= mostStart[x]; i++) {
                 for (int j = 0; j < numberOfNodes; j++) {
-                    paths.insert({{i + 1, j + (numberOfTasks * nTS) + 1}, costs[{tasks[i].name, nodes[j].name}]});
+                    if (tasks[x].cpu <= nodes[j].cpu_cap) {
+                        paths.insert({{x * nTS + i + 1, j + (numberOfTasks * nTS) + 1}, costs[{tasks[x].name, nodes[j].name}]});
+                    }
                 }
             }
         }
 
+        return true;
     }
-    pair<int, int> minCostMaxFlow() {
 
+    pair<pair<int, int>, int> findShortestPath() {
+        auto it = paths.begin();
+        if (it == paths.end()) {
+            return {{-1, -1}, -1};
+        }
+
+        pair<pair<int, int>, int> min_element = *it;
+        int taskId = min_element.first.first;
+
+
+
+        return min_element;
+    }
+    
+    pair<int, int> minCostMaxFlow() {
+        int min_cost = 0, max_flow = 0;
+        while (true) {
+            bool flag = createPath();
+            if (flag) {
+                pair<pair<int, int>, int> res = findShortestPath();
+                pair<pair<int, int>, int> target = {{-1, -1}, -1};
+                if (res == target) {
+                    break;
+                }
+                int taskId = res.first.first;
+                int nodeId = res.first.second;
+                
+                if (taskId == -1) {
+                    break;
+                }
+
+                min_cost += res.second;
+                max_flow++;
+            }
+        }
+
+        return {min_cost, max_flow};
     }
 };
 
@@ -229,8 +268,6 @@ int main() {
     }
 
     cout << idx << '\n';
-
-    vector<state> schedulingGraph(T.size() + 1);
 
     return 0;
 }
