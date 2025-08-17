@@ -56,14 +56,17 @@ struct Edge {
 };
 
 struct comp {
-    bool operator()(const pair<pair<int, int>, int>& x, const pair<pair<int, int>, int>& y) {
-        return x.second < y.second;
+    bool operator()(const pair<pair<int, int>, pair<int, int>>& x, const pair<pair<int, int>, pair<int, int>>& y) {
+        if (x.second.first == y.second.first) {
+            return x.second.second < y.second.second;
+        }
+        return x.second.second < y.second.second;
     }
 };
 
 class timeExpandedMCMF {
 private:
-    set<pair<pair<int, int>, int>, comp> paths;
+    set<pair<pair<int, int>, pair<int, int>>, comp> paths;
     vector<int> leastStart, mostStart;
     vector<taskNode> tasks;
     vector<Node> nodes;
@@ -97,27 +100,35 @@ public:
             for (int i = leastStart[x]; i <= mostStart[x]; i++) {
                 for (int j = 0; j < numberOfNodes; j++) {
                     if (tasks[x].cpu <= nodes[j].cpu_cap) {
-                        paths.insert({{x * nTS + i + 1, j + (numberOfTasks * nTS) + 1}, costs[{tasks[x].name, nodes[j].name}]});
+                        paths.insert({{x * nTS + i + 1, j + (numberOfTasks * nTS) + 1}, {costs[{tasks[x].name, nodes[j].name}], x}});
                     }
                 }
             }
         }
 
-        return true;
+        if (!paths.empty()) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
-    pair<pair<pair<int, int>, int>, int> findShortestPath() {
+    void removeUselessPaths() {
+         
+    }
+
+    pair<pair<int, int>, pair<int, int>> findShortestPath() {
         auto it = paths.begin();
         if (it == paths.end()) {
-            return {{{-1, -1}, -1}, -1};
+            return {{-1, -1}, {-1, -1}};
         }
 
-        pair<pair<int, int>, int> min_element = *it;
+        pair<pair<int, int>, pair<int, int>> min_element = *it;
         int taskId = min_element.first.first;
 
         int timeSlot = taskId % nTS - 1;
 
-        return {min_element, timeSlot};
+        return min_element;
     }
 
     pair<int, int> minCostMaxFlow() {
@@ -125,23 +136,25 @@ public:
         while (true) {
             bool flag = createPath();
             if (flag) {
-                pair<pair<pair<int, int>, int>, int> res = findShortestPath();
-                pair<pair<pair<int, int>, int>, int> target = {{{-1, -1}, -1}, -1};
+                pair<pair<int, int>, pair<int, int>> res = findShortestPath();
+                pair<pair<int, int>, pair<int, int>> target = {{-1, -1}, {-1, -1}};
                 if (res == target) {
                     break;
                 }
-                int taskId = res.first.first.first;
-                int nodeId = res.first.first.second;
-                int startTime = res.second;
-                
+                int taskId = res.first.first;
+                int nodeId = res.first.second;
+                int startTime = res.second.second;
+
                 if (taskId == -1) {
                     break;
                 }
 
-                min_cost += res.second;
+                min_cost += res.second.first;
                 max_flow++;
 
                 assignedTasks[tasks[int(taskId / nTS)].name] = {nodes[nodeId].name, startTime};
+            } else {
+                break;
             }
         }
 
