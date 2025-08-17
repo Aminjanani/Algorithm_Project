@@ -6,6 +6,7 @@ using namespace std;
 using json = nlohmann::json;
 
 const int INF = 1e9 + 7;
+const int MINF = -INF;
 
 struct taskNode {
     int id;
@@ -74,33 +75,45 @@ private:
     int numberOfTasks, numberOfNodes, nTS;
     vector<vector<int>> pq;
     vector<int> ts;
-    //map<int, pair<int, int>> timeRange;
+    map<pair<string, int>, int> timeSlotCap;
+    vector<vector<int>> dependency_graph;
     map<string, pair<string, int>> assignedTasks;
 
 public:
     timeExpandedMCMF(vector<int> TS, 
                      vector<vector<int>> PQ, 
                      vector<int> ls, 
-                     vector<int> ms): ts(TS), pq(PQ), leastStart(ls), mostStart(ms) {
+                     vector<int> ms,
+                     map<pair<string, int>, int> capacity_per_time_slot,
+                     vector<vector<int>> dg): 
+                     ts(TS), pq(PQ), leastStart(ls), mostStart(ms),
+                     timeSlotCap(capacity_per_time_slot), dependency_graph(dg) {
         numberOfTasks = tasks.size();
         numberOfNodes = nodes.size();
         nTS = ts.size();
-        /*for (int i = 0; i < numberOfTasks; i++) {
-            for (int j = 0; j < numberOfNodes; j++) {
-                paths.insert({{i + 1, j + (numberOfTasks * nTS) + 1}, costs[{tasks[i].name, nodes[j].name}]});
+        int pqSize = pq.size();
+        vector<int> firstPriority = pq[pqSize - 1];
+        for (auto& x : firstPriority) {
+            leastStart[x - 1] = 0;
+            mostStart[x - 1] = tasks[x - 1].deadline - tasks[x - 1].duration;
+        }
+        for (int i = 0; i < pqSize - 1; i++) {
+            for (auto& y : pq[i]) {
+                leastStart[y - 1] = MINF;
+                mostStart[y - 1] = tasks[y - 1].deadline - tasks[y - 1].duration;
             }
-        }*/
+        }
     }
 public:
-    bool createPath() {
-        vector<int> currentPriority = pq[pq.size() - 1];
+    bool createPath(vector<int>& currentPriority) {
         pq.pop_back();
         for (auto x : currentPriority) {
             x--;
             for (int i = leastStart[x]; i <= mostStart[x]; i++) {
                 for (int j = 0; j < numberOfNodes; j++) {
-                    if (tasks[x].cpu <= nodes[j].cpu_cap) {
-                        paths.insert({{x * nTS + i + 1, j + (numberOfTasks * nTS) + 1}, {costs[{tasks[x].name, nodes[j].name}], x}});
+                    if (tasks[x].cpu <= timeSlotCap[{nodes[j].name, i}]) {
+                        paths.insert({{x * nTS + i + 1, j + (numberOfTasks * nTS) + 1}, 
+                                     {costs[{tasks[x].name, nodes[j].name}], i}});
                     }
                 }
             }
@@ -113,8 +126,16 @@ public:
         }
     }
 
-    void removeUselessPaths() {
-         
+    void setStartTime(int taskId, int time) {
+        for (auto& x : dependency_graph[taskId]) {
+            leastStart[x] = time;
+        }
+    }
+
+    void removeUselessPaths(int taskId) {
+        for (auto it = paths.begin(); it != paths.end(); ++it) {
+
+        }
     }
 
     pair<pair<int, int>, pair<int, int>> findShortestPath() {
@@ -126,7 +147,7 @@ public:
         pair<pair<int, int>, pair<int, int>> min_element = *it;
         int taskId = min_element.first.first;
 
-        int timeSlot = taskId % nTS - 1;
+        removeUselessPaths(taskId);
 
         return min_element;
     }
@@ -134,25 +155,33 @@ public:
     pair<int, int> minCostMaxFlow() {
         int min_cost = 0, max_flow = 0;
         while (true) {
-            bool flag = createPath();
+            if (pq.empty()) {
+                break;
+            }
+            vector<int> currentPriority = pq[pq.size() - 1];
+            bool flag = createPath(currentPriority);
             if (flag) {
-                pair<pair<int, int>, pair<int, int>> res = findShortestPath();
-                pair<pair<int, int>, pair<int, int>> target = {{-1, -1}, {-1, -1}};
-                if (res == target) {
-                    break;
+                while (!paths.size()) {
+                    pair<pair<int, int>, pair<int, int>> res = findShortestPath();
+                    pair<pair<int, int>, pair<int, int>> target = {{-1, -1}, {-1, -1}};
+                    if (res == target) {
+                        break;
+                    }
+                    int taskId = res.first.first;
+                    int nodeId = res.first.second;
+                    int startTime = res.second.second;
+
+                    if (taskId == -1) {
+                        break;
+                    }
+
+                    min_cost += res.second.first;
+                    max_flow++;
+
+                    int taskId = int(taskId / nTS);
+                    assignedTasks[tasks[taskId].name] = {nodes[nodeId].name, startTime};
+                    setStartTime(taskId, startTime + tasks[taskId].duration);
                 }
-                int taskId = res.first.first;
-                int nodeId = res.first.second;
-                int startTime = res.second.second;
-
-                if (taskId == -1) {
-                    break;
-                }
-
-                min_cost += res.second.first;
-                max_flow++;
-
-                assignedTasks[tasks[int(taskId / nTS)].name] = {nodes[nodeId].name, startTime};
             } else {
                 break;
             }
@@ -282,8 +311,6 @@ int main() {
         }
         cout << '\n';
     }
-
-    cout << idx << '\n';
 
     return 0;
 }
