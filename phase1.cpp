@@ -114,7 +114,7 @@ public:
             }
         }
     }
-
+private:
     void addEdge(int tId, int nId, int cost) {
         if (tasks[tId - 1].cpu <= nodes[nId - 1].cpu_cap && tasks[tId - 1].ram <= nodes[nId - 1].ram_cap) {
             int from = tId;
@@ -149,8 +149,6 @@ public:
         pair<pair<int, int>, int> min_element = *it;
         int taskId = min_element.first.first;
 
-        //cout << "cpu: " << tasks[min_element.first.first - 1].cpu << ", ram: " << tasks[min_element.first.first - 1].ram << '\n';
-
         removeUseLessEdges(taskId);
 
         int i = min_element.first.first;
@@ -158,12 +156,9 @@ public:
         int new_cpu = nodes[j - numOfTasks - 1].cap.first - tasks[i - 1].cpu;
         int new_ram = nodes[j - numOfTasks - 1].cap.second - tasks[i - 1].ram;
         nodes[j - numOfTasks - 1].cap = {new_cpu, new_ram};
-        //cout << "new cpu: " << new_cpu << ", new ram: " << new_ram << '\n';
         for (int k = 0; k < nodes[j - numOfTasks - 1].adj.size(); k++) {
-            //cout << "k: " << k << '\n';
             int cpu = tasks[k].cpu;
             int ram = tasks[k].ram;
-            //cout << "task cpu: " << cpu << ", task ram: " << ram << '\n';
             if (cpu > new_cpu || ram > new_ram) {
                 pair<int, int> target = {k + 1, j};
                 for (auto it = paths.begin(); it != paths.end();) {
@@ -178,7 +173,7 @@ public:
 
         return min_element;
     }
-
+public:
     void displayPaths() {
         while (paths.size()) {
             auto it = paths.begin();
@@ -203,10 +198,6 @@ public:
                 break;
             }
 
-            //cout << tasks[taskId - 1].name << " " << nodes[nodeId - numOfTasks - 1].name << '\n';
-            //cout << "remainig paths" << '\n';
-            //displayPaths();
-
             min_cost += res.second;
             max_flow++;
 
@@ -215,7 +206,6 @@ public:
                 g[0][taskId] = nullptr;
             }
 
-            //removeUseLessEdges(taskId);
             assignedTasks[tasks[taskId - 1].name] = nodes[nodeId - numOfTasks - 1].name;
         }
 
@@ -246,7 +236,6 @@ int main() {
         int deadline = tasks[i]["deadline"];
         taskNode tn(num++, name, cpu, ram, deadline);
         taskNodes.push_back(tn);
-        //num++;
     }
 
     vector<Node> Nodes;
@@ -258,7 +247,6 @@ int main() {
         int ram_cap = nodes[i]["ram_capacity"];
         Node node(num++, name, cpu_cap, ram_cap);
         Nodes.push_back(node);
-        //num++;
     }
 
     json exec_cost = input["exec_cost"];
