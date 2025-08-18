@@ -104,7 +104,11 @@ public:
             }
         }
     }
-public:
+private:
+    void updateNodeCapPerTime(int nodeId, int timeSlot, int cpu) {
+        timeSlotCap[{nodes[nodeId].name, timeSlot}] -= cpu;
+    }
+    
     bool createPath(vector<int>& currentPriority) {
         pq.pop_back();
         for (auto x : currentPriority) {
@@ -114,6 +118,7 @@ public:
                     if (tasks[x].cpu <= timeSlotCap[{nodes[j].name, i}]) {
                         paths.insert({{x * nTS + i + 1, j + (numberOfTasks * nTS) + 1}, 
                                      {costs[{tasks[x].name, nodes[j].name}], i}});
+                        updateNodeCapPerTime(j, i, tasks[x].cpu);             
                     }
                 }
             }
@@ -151,7 +156,7 @@ public:
 
         return min_element;
     }
-
+public:
     pair<int, int> minCostMaxFlow() {
         int min_cost = 0, max_flow = 0;
         while (true) {
@@ -178,9 +183,9 @@ public:
                     min_cost += res.second.first;
                     max_flow++;
 
-                    int taskId = int(taskId / nTS);
-                    assignedTasks[tasks[taskId].name] = {nodes[nodeId].name, startTime};
-                    setStartTime(taskId, startTime + tasks[taskId].duration);
+                    int tId = int(taskId / nTS);
+                    assignedTasks[tasks[tId].name] = {nodes[nodeId].name, startTime};
+                    setStartTime(tId, startTime + tasks[tId].duration);
                 }
             } else {
                 break;
