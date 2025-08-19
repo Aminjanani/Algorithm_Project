@@ -273,14 +273,6 @@ int main() {
         }
     }
 
-    /*for (int i = 0; i < T.size(); i++) {
-        cout << i << ": ";
-        for (auto x : dependency_graph[i]) {
-            cout << x << " ";
-        }
-        cout << "\n";
-    }*/
-
     vector<vector<int>> pq(T.size());
     vector<bool> visited(T.size() + 1, false);
     vector<int> priority(T.size() + 1);
@@ -315,13 +307,6 @@ int main() {
     }
 
     reverse(pq.begin(), pq.end());
-
-    /*for (int i = 0; i < pq.size(); i++) {
-        for (auto x : pq[i]) {
-            cout << x << ", ";
-        }
-        cout << '\n';
-    }*/
 
     return 0;
 }
