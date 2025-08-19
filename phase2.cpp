@@ -93,12 +93,12 @@ public:
         nTS = ts.size();
         int pqSize = pq.size();
         vector<int> firstPriority = pq[pqSize - 1];
-        for (auto& x : firstPriority) {
+        for (auto &x : firstPriority) {
             leastStart[x - 1] = 0;
             mostStart[x - 1] = tasks[x - 1].deadline - tasks[x - 1].duration;
         }
         for (int i = 0; i < pqSize - 1; i++) {
-            for (auto& y : pq[i]) {
+            for (auto &y : pq[i]) {
                 leastStart[y - 1] = MINF;
                 mostStart[y - 1] = tasks[y - 1].deadline - tasks[y - 1].duration;
             }
@@ -132,7 +132,7 @@ private:
     }
 
     void setStartTime(int taskId, int time) {
-        for (auto& x : dependency_graph[taskId]) {
+        for (auto &x : dependency_graph[taskId]) {
             leastStart[x] = time;
         }
     }
@@ -227,8 +227,8 @@ int main() {
 
     json exec_cost = input["exec_cost"];
     map<pair<string, string>, int> exec_cost_mp;
-    for (auto& task_name : T) {
-        for (auto& node_name : N) {
+    for (auto &task_name : T) {
+        for (auto &node_name : N) {
             exec_cost_mp[{task_name, node_name}] = INF;
         }
     }
@@ -274,13 +274,13 @@ int main() {
         }
     }
 
-    for (int i = 0; i < T.size(); i++) {
+    /*for (int i = 0; i < T.size(); i++) {
         cout << i << ": ";
         for (auto x : dependency_graph[i]) {
             cout << x << " ";
         }
         cout << "\n";
-    }
+    }*/
 
     vector<vector<int>> pq(T.size());
     vector<bool> visited(T.size() + 1, false);
@@ -294,7 +294,7 @@ int main() {
         while (q.size()) {
             int v = q.front();
             q.pop();
-            for (auto x : dependency_graph[v]) {
+            for (auto &x : dependency_graph[v]) {
                 if (!visited[x] || (visited[x] && priority[x] < priority[v] + 1)) {
                     if (!visited[x]) {
                         visited[x] = true;
@@ -317,12 +317,12 @@ int main() {
 
     reverse(pq.begin(), pq.end());
 
-    for (int i = 0; i < pq.size(); i++) {
+    /*for (int i = 0; i < pq.size(); i++) {
         for (auto x : pq[i]) {
             cout << x << ", ";
         }
         cout << '\n';
-    }
+    }*/
 
     return 0;
 }
