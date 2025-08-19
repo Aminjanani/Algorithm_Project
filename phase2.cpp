@@ -137,9 +137,16 @@ private:
         }
     }
 
-    void removeUselessPaths(int taskId) {
-        for (auto it = paths.begin(); it != paths.end(); ++it) {
-
+    void removeUselessPaths(int Id) {
+        int taskId = ((Id - 1) / nTS);
+        for (int i = taskId * nTS + 1; i <= (taskId + 1) * nTS; i++) {
+            for (auto it = paths.begin(); it != paths.end();) {
+                if (it->first.first == i) {
+                    it = paths.erase(it);
+                } else {
+                    ++it;
+                }
+            }
         }
     }
 
