@@ -308,5 +308,8 @@ int main() {
 
     reverse(pq.begin(), pq.end());
 
+    timeExpandedMCMF temcmf(timeStamps, pq, capacity_per_time_slot, dependency_graph);
+
     return 0;
 }
+
