@@ -82,14 +82,13 @@ private:
 public:
     timeExpandedMCMF(vector<int> TS, 
                      vector<vector<int>> PQ, 
-                     vector<int> ls, 
-                     vector<int> ms,
                      map<pair<string, int>, int> capacity_per_time_slot,
                      vector<vector<int>> dg): 
-                     ts(TS), pq(PQ), leastStart(ls), mostStart(ms),
-                     timeSlotCap(capacity_per_time_slot), dependency_graph(dg) {
+                     ts(TS), pq(PQ), timeSlotCap(capacity_per_time_slot), dependency_graph(dg) {
         numberOfTasks = tasks.size();
         numberOfNodes = nodes.size();
+        leastStart.resize(tasks.size());
+        mostStart.resize(tasks.size());
         nTS = ts.size();
         int pqSize = pq.size();
         vector<int> firstPriority = pq[pqSize - 1];
