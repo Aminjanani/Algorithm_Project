@@ -29,7 +29,10 @@ int main() {
 
     string node = input["node"];
 
+    int idNumber = 0;
     vector<taskNode> T;
+    vector<string> tasks;
+    map<string, taskNode> taskMap;
     json assignedTasks = input["assigned_tasks"];
     for (int i = 0; i < (int)assignedTasks.size(); i++) {
         string id = assignedTasks[i]["id"];
@@ -37,7 +40,10 @@ int main() {
         int ram = assignedTasks[i]["ram"];
         int duration = assignedTasks[i]["duration"];
         int deadline = assignedTasks[i]["deadline"];
-        T.push_back(taskNode(id, cpu, ram, duration, deadline));
+        taskNode new_task = taskNode(id, cpu, ram, duration, deadline);
+        T.push_back(new_task);
+        tasks.push_back(id);
+        taskMap[id] = new_task;
     }
 
     json resourcePerTime = input["resource_per_time"];
@@ -50,8 +56,27 @@ int main() {
 
     vector<int> timeSlots = input["time_slot"];
 
-    auto fitTasks = [&]() {
-        
+    auto find_all_permutatoins = [&](vector<string>& tasks) -> vector<vector<taskNode>> {
+        vector<vector<taskNode>> perms;
+        sort(tasks.begin(), tasks.end());
+        do {
+            vector<taskNode> tmp;
+            for (auto &x : tasks) {
+                tmp.push_back(taskMap[x]);
+            }
+            perms.push_back(tmp);
+        } while (next_permutation(tasks.begin(), tasks.end()));
+    };
+
+    auto fitTasks = [&](vector<vector<taskNode>>& taskPerms, int numOfTasks) {
+        vector<vector<vector<int>>> dp;
+        for (int i = 0; i < taskPerms.size(); i++) {
+            for (int j = 0; j < T.size(); j++) {
+                for (int k = 0; k < timeSlots.size(); k++) {
+
+                }
+            }
+        }
     };
 
     return 0;
