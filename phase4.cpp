@@ -34,6 +34,7 @@ int main() {
     vector<string> tasks;
     map<string, taskNode> taskMap;
     map<string, pair<int, int>> taskConstMap;
+    map<string, int> taskCpuMap;
     json assignedTasks = input["assigned_tasks"];
     for (int i = 0; i < (int)assignedTasks.size(); i++) {
         string id = assignedTasks[i]["id"];
@@ -42,6 +43,7 @@ int main() {
         int duration = assignedTasks[i]["duration"];
         int deadline = assignedTasks[i]["deadline"];
         taskConstMap[id] = {duration, deadline};
+        taskCpuMap[id] = cpu;
         taskNode new_task = taskNode(id, cpu, ram, duration, deadline);
         T.push_back(new_task);
         tasks.push_back(id);
@@ -74,13 +76,14 @@ int main() {
         return subSets;
     };
 
-    auto getMaxStartTime = [&](set<string>& s) {
-        int max_start = -1;
+    auto getMaxStartTime = [&](set<string>& s) -> pair<int, int> {
+        int max_start = -1, total_cpu = 0;
         for (auto &x : s) {
             max_start = max(max_start, taskConstMap[x].second - taskConstMap[x].first);
+            total_cpu += taskCpuMap[x];
         }
 
-        return max_start;
+        return {max_start, total_cpu};
     };
 
     auto diff = [&](set<string>& s1, set<string>& s2) -> set<string> {
@@ -98,7 +101,8 @@ int main() {
         vector<set<string>> allSubsets = getAllSubsets(Tasks);
         map<pair<int, set<string>>, int> dp;
         for (int j = 0; j < allSubsets.size(); j++) {
-            if (getMaxStartTime(allSubsets[j]) >= 0) {
+            pair<int, int> target = getMaxStartTime(allSubsets[j]);
+            if (target.first >= 0 && target.second <= timeSlotCap[0]) {
                 dp[{0, allSubsets[j]}] = 0;
             } else {
                 dp[{0, allSubsets[j]}] = -1;
@@ -114,7 +118,8 @@ int main() {
             for (int j = 0; j < allSubsets.size(); j++) {
                 vector<set<string>> subsubset = getAllSubsets(allSubsets[j]);
                 for (int k = 0; k < subsubset.size(); k++) {
-
+                    set<string> diff_set = diff(allSubsets[j], subsubset[k]);
+                    dp[{i, allSubsets[j]}] = min(dp[{i, allSubsets[j]}], dp[{i - 1, diff_set}]);
                 }
             }
         }
