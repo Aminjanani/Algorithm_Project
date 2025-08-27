@@ -105,7 +105,7 @@ int main() {
         }
 
         vector<set<string>> allSubsets = getAllSubsets(Tasks);
-        map<pair<int, set<string>>, int> dp;
+        map<pair<int, set<string>>, long int> dp;
         for (int j = 0; j < allSubsets.size(); j++) {
             pair<int, int> target = getMaxStartTime(allSubsets[j]);
             if (target.first >= 0 && target.second <= timeSlotCap[0]) {
@@ -116,7 +116,7 @@ int main() {
         }
         for (int i = 1; i < timeSlots.size(); i++) {
             for (int j = 0; j < allSubsets.size(); j++) {
-                dp[{i, allSubsets[j]}] = -1;
+                dp[{i, allSubsets[j]}] = INT_MAX;
             }
         }
 
@@ -125,11 +125,16 @@ int main() {
                 vector<set<string>> subsubset = getAllSubsets(allSubsets[j]);
                 for (int k = 0; k < subsubset.size(); k++) {
                     set<string> diff_set = diff(allSubsets[j], subsubset[k]);
-                    pair<int, int> target = getMaxStartTime(subsubset[k]);
-                    if (target.first >= i && target.second <= timeSlotCap[i]) {
-                        if (dp[{i, allSubsets[j]}] > dp[{i - 1, diff_set}]) {
-                            dp[{i, allSubsets[j]}] = dp[{i - 1, diff_set}];
-                            parent[{i, allSubsets[j]}] = {i - 1, diff_set};
+                    if (subsubset[k].size() == 0) {
+                        dp[{i, allSubsets[j]}] = dp[{i - 1, diff_set}] + 1;
+                        parent[{i, allSubsets[j]}] = {i - 1, diff_set};
+                    } else {
+                        pair<int, int> target = getMaxStartTime(subsubset[k]);
+                        if (target.first >= i && target.second <= timeSlotCap[i]) {
+                            if (dp[{i, allSubsets[j]}] > dp[{i - 1, diff_set}]) {
+                                dp[{i, allSubsets[j]}] = dp[{i - 1, diff_set}];
+                                parent[{i, allSubsets[j]}] = {i - 1, diff_set};
+                            }
                         }
                     }
                 }
