@@ -33,6 +33,7 @@ int main() {
     vector<taskNode> T;
     vector<string> tasks;
     map<string, taskNode> taskMap;
+    map<string, pair<int, int>> taskConstMap;
     json assignedTasks = input["assigned_tasks"];
     for (int i = 0; i < (int)assignedTasks.size(); i++) {
         string id = assignedTasks[i]["id"];
@@ -40,6 +41,7 @@ int main() {
         int ram = assignedTasks[i]["ram"];
         int duration = assignedTasks[i]["duration"];
         int deadline = assignedTasks[i]["deadline"];
+        taskConstMap[id] = {duration, deadline};
         taskNode new_task = taskNode(id, cpu, ram, duration, deadline);
         T.push_back(new_task);
         tasks.push_back(id);
@@ -56,23 +58,62 @@ int main() {
 
     vector<int> timeSlots = input["time_slot"];
 
-    auto find_all_permutatoins = [&](vector<string>& tasks) -> vector<vector<taskNode>> {
-        vector<vector<taskNode>> perms;
-        sort(tasks.begin(), tasks.end());
-        do {
-            vector<taskNode> tmp;
-            for (auto &x : tasks) {
-                tmp.push_back(taskMap[x]);
+    auto getAllSubsets = [&](const set<string>& s) -> vector<set<string>> {
+        int n = s.size();
+        vector<string> elements(s.begin(), s.end());
+        vector<set<string>> subSets;
+        for (int mask = 0; mask < (1 << n); mask++) {
+            set<string> subset;
+            for (int i = 0; i < n; i++) {
+                if (mask && (1 << i)) {
+                    subset.insert(elements[i]); 
+                }
             }
-            perms.push_back(tmp);
-        } while (next_permutation(tasks.begin(), tasks.end()));
+            subSets.push_back(subset);
+        }
+        return subSets;
     };
 
-    auto fitTasks = [&](vector<vector<taskNode>>& taskPerms, int numOfTasks) {
-        vector<vector<vector<int>>> dp;
-        for (int i = 0; i < taskPerms.size(); i++) {
-            for (int j = 0; j < T.size(); j++) {
-                for (int k = 0; k < timeSlots.size(); k++) {
+    auto getMaxStartTime = [&](set<string>& s) {
+        int max_start = -1;
+        for (auto &x : s) {
+            max_start = max(max_start, taskConstMap[x].second - taskConstMap[x].first);
+        }
+
+        return max_start;
+    };
+
+    auto diff = [&](set<string>& s1, set<string>& s2) -> set<string> {
+        set<string> diff_set;
+        set_difference(s1.begin(), s1.end(), s2.begin(), s2.end(), back_inserter(diff_set));
+        return diff_set;
+    };
+
+    auto fitTasks = [&]() {
+        set<string> Tasks;
+        for (int i = 0; i < tasks.size(); i++) {
+            Tasks.insert(tasks[i]);
+        }
+
+        vector<set<string>> allSubsets = getAllSubsets(Tasks);
+        map<pair<int, set<string>>, int> dp;
+        for (int j = 0; j < allSubsets.size(); j++) {
+            if (getMaxStartTime(allSubsets[j]) >= 0) {
+                dp[{0, allSubsets[j]}] = 0;
+            } else {
+                dp[{0, allSubsets[j]}] = -1;
+            }
+        }
+        for (int i = 1; i < timeSlots.size(); i++) {
+            for (int j = 0; j < allSubsets.size(); j++) {
+                dp[{i, allSubsets[j]}] = -1;
+            }
+        }
+
+        for (int i = 1; i < timeSlots.size(); i++) {
+            for (int j = 0; j < allSubsets.size(); j++) {
+                vector<set<string>> subsubset = getAllSubsets(allSubsets[j]);
+                for (int k = 0; k < subsubset.size(); k++) {
 
                 }
             }
