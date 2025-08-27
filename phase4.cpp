@@ -60,6 +60,7 @@ int main() {
 
     vector<int> timeSlots = input["time_slot"];
 
+    // compute all possible subset of the original tasks
     auto getAllSubsets = [&](const set<string>& s) -> vector<set<string>> {
         int n = s.size();
         vector<string> elements(s.begin(), s.end());
@@ -76,6 +77,7 @@ int main() {
         return subSets;
     };
 
+    // compute the maximum possible start time and total cpu for a subset of tasks
     auto getMaxStartTime = [&](set<string>& s) -> pair<int, int> {
         int max_start = -1, total_cpu = 0;
         for (auto &x : s) {
@@ -86,12 +88,14 @@ int main() {
         return {max_start, total_cpu};
     };
 
+    // compute the difference between two sets of tasks
     auto diff = [&](set<string>& s1, set<string>& s2) -> set<string> {
         set<string> diff_set;
         set_difference(s1.begin(), s1.end(), s2.begin(), s2.end(), back_inserter(diff_set));
         return diff_set;
     };
 
+    // fit tasks into time slots using dynamic programming
     auto fitTasks = [&]() {
         set<string> Tasks;
         for (int i = 0; i < tasks.size(); i++) {
@@ -119,7 +123,12 @@ int main() {
                 vector<set<string>> subsubset = getAllSubsets(allSubsets[j]);
                 for (int k = 0; k < subsubset.size(); k++) {
                     set<string> diff_set = diff(allSubsets[j], subsubset[k]);
-                    dp[{i, allSubsets[j]}] = min(dp[{i, allSubsets[j]}], dp[{i - 1, diff_set}]);
+                    pair<int, int> target = getMaxStartTime(subsubset[k]);
+                    if (target.first >= i && target.second <= timeSlotCap[i]) {
+                        if (dp[{i, allSubsets[j]}] > dp[{i - 1, diff_set}]) {
+                            dp[{i, allSubsets[j]}] = dp[{i - 1, diff_set}];
+                        }
+                    }
                 }
             }
         }
