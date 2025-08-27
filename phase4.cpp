@@ -95,6 +95,8 @@ int main() {
         return diff_set;
     };
 
+    map<pair<int, set<string>>, pair<int, set<string>>> parent;
+
     // fit tasks into time slots using dynamic programming
     auto fitTasks = [&]() {
         set<string> Tasks;
@@ -127,6 +129,7 @@ int main() {
                     if (target.first >= i && target.second <= timeSlotCap[i]) {
                         if (dp[{i, allSubsets[j]}] > dp[{i - 1, diff_set}]) {
                             dp[{i, allSubsets[j]}] = dp[{i - 1, diff_set}];
+                            parent[{i, allSubsets[j]}] = {i - 1, diff_set};
                         }
                     }
                 }
