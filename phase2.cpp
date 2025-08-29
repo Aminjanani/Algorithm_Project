@@ -1,12 +1,9 @@
 #include <bits/stdc++.h>
-#include <optional>
 #include "json.hpp"
-
 using namespace std;
 using json = nlohmann::json;
 
 const int INF = 1e9 + 7;
-const int MINF = -INF;
 
 struct taskNode {
     int id;
@@ -16,14 +13,8 @@ struct taskNode {
     int deadline;
     int duration;
 
-    taskNode(int ID, string NAME, int CPU, int RAM, int DEADLINE, int DURATION) {
-        id = ID;
-        name = NAME;
-        cpu = CPU;
-        ram = RAM;
-        deadline = DEADLINE;
-        duration = DURATION;
-    }
+    taskNode(int ID, string NAME, int CPU, int RAM, int DEADLINE, int DURATION)
+        : id(ID), name(NAME), cpu(CPU), ram(RAM), deadline(DEADLINE), duration(DURATION) {}
 };
 
 struct Node {
@@ -32,181 +23,326 @@ struct Node {
     int cpu_cap;
     int ram_cap;
 
-    Node(int ID, string NAME, int CPU_CAP, int RAM_CAP) {
-        id = ID;
-        name = NAME;
-        cpu_cap = CPU_CAP;
-        ram_cap = RAM_CAP;
-    }
+    Node(int ID, string NAME, int CPU_CAP, int RAM_CAP)
+        : id(ID), name(NAME), cpu_cap(CPU_CAP), ram_cap(RAM_CAP) {}
 };
 
 struct Edge {
-    int taskId;
-    int nodeId;
+    int to;
+    int rev;
+    int cap;
     int cost;
-    int capacity;
-    bool edgeExists = false;
-
-    Edge(int TaskID, int NodeID, int COST, int CAP) {
-        cost = COST;
-        capacity = CAP;
-        taskId = TaskID;
-        nodeId = NodeID;
-        edgeExists = true;
-    }
 };
 
-struct comp {
-    bool operator()(const pair<pair<int, int>, pair<int, int>>& x, const pair<pair<int, int>, pair<int, int>>& y) {
-        if (x.second.first == y.second.first) {
-            return x.second.second < y.second.second;
+struct MinCostMaxFlow {
+    int n;
+    vector<vector<Edge>> g;
+    MinCostMaxFlow(int n=0): n(n), g(n) {}
+
+    void reset(int nn) {
+        n = nn;
+        g.assign(n, {});
+    }
+
+    void addEdge(int u, int v, int cap, int cost) {
+        Edge a{v, (int)g[v].size(), cap, cost};
+        Edge b{u, (int)g[u].size(), 0, -cost};
+        g[u].push_back(a);
+        g[v].push_back(b);
+    }
+
+    pair<int,int> minCostMaxFlow(int s, int t) {
+        int flow = 0, cost = 0;
+        vector<int> potential(n, 0);
+        while (true) {
+            vector<int> dist(n, INF), pv(n, -1), pe(n, -1);
+            dist[s] = 0;
+            using P = pair<int,int>;
+            priority_queue<P, vector<P>, greater<P>> pq;
+            pq.push({0, s});
+            while (!pq.empty()) {
+                auto [d, u] = pq.top(); pq.pop();
+                if (d != dist[u]) continue;
+                for (int i = 0; i < (int)g[u].size(); ++i) {
+                    Edge &e = g[u][i];
+                    if (e.cap <= 0) continue;
+                    int rcost = e.cost + potential[u] - potential[e.to];
+                    if (dist[e.to] > d + rcost) {
+                        dist[e.to] = d + rcost;
+                        pv[e.to] = u;
+                        pe[e.to] = i;
+                        pq.push({dist[e.to], e.to});
+                    }
+                }
+            }
+            if (dist[t] == INF) break;
+            for (int i = 0; i < n; ++i) if (dist[i] < INF) potential[i] += dist[i];
+            int addf = INF;
+            for (int v = t; v != s; v = pv[v]) {
+                Edge &e = g[pv[v]][pe[v]];
+                addf = min(addf, e.cap);
+            }
+            for (int v = t; v != s; v = pv[v]) {
+                Edge &e = g[pv[v]][pe[v]];
+                e.cap -= addf;
+                g[v][e.rev].cap += addf;
+                cost += addf * e.cost;
+            }
+            flow += addf;
         }
-        return x.second.second < y.second.second;
+        return {flow, cost};
     }
 };
+
 
 class timeExpandedMCMF {
 private:
-    set<pair<pair<int, int>, pair<int, int>>, comp> paths;
-    vector<int> leastStart, mostStart;
     vector<taskNode> tasks;
     vector<Node> nodes;
-    map<pair<string, string>, int> costs;
-    int numberOfTasks, numberOfNodes, nTS;
-    vector<vector<int>> pq;
-    vector<int> ts;
-    map<pair<string, int>, int> timeSlotCap;
-    vector<vector<int>> dependency_graph;
-    map<string, pair<string, int>> assignedTasks;
+    map<pair<string,string>, int> exec_cost; 
+    vector<int> timeSlots;                  
+    vector<vector<int>> layers;     
+    map<pair<string,int>, int> startCap;    
+    vector<vector<int>> dep_graph_raw;      
+    vector<vector<int>> dep_graph;         
+    int T = 0, N = 0, TS = 0;
+    vector<int> earliestStart;  
+    vector<int> latestStart;    
+    vector<int> finishTime;      
+    vector<bool> assigned;       
+    vector<vector<int>> used_cpu;  
+    vector<vector<int>> used_ram;  
+    map<string, pair<string,int>> assignment; 
 
 public:
-    timeExpandedMCMF(vector<int> TS, 
-                     vector<vector<int>> PQ, 
-                     map<pair<string, int>, int> capacity_per_time_slot,
-                     vector<vector<int>> dg): 
-                     ts(TS), pq(PQ), timeSlotCap(capacity_per_time_slot), dependency_graph(dg) {
-        numberOfTasks = tasks.size();
-        numberOfNodes = nodes.size();
-        leastStart.resize(tasks.size());
-        mostStart.resize(tasks.size());
-        nTS = ts.size();
-        int pqSize = pq.size();
-        vector<int> firstPriority = pq[pqSize - 1];
-        for (auto &x : firstPriority) {
-            leastStart[x - 1] = 0;
-            mostStart[x - 1] = tasks[x - 1].deadline - tasks[x - 1].duration;
-        }
-        for (int i = 0; i < pqSize - 1; i++) {
-            for (auto &y : pq[i]) {
-                leastStart[y - 1] = MINF;
-                mostStart[y - 1] = tasks[y - 1].deadline - tasks[y - 1].duration;
+    timeExpandedMCMF(const vector<taskNode>& TASKS,
+                     const vector<Node>& NODES,
+                     const map<pair<string,string>, int>& COSTS,
+                     const vector<int>& TSLOTS,
+                     const vector<vector<int>>& PQ,
+                     const map<pair<string,int>, int>& capacity_per_time_slot,
+                     const vector<vector<int>>& dep_from_main)
+        : tasks(TASKS), nodes(NODES), exec_cost(COSTS),
+          timeSlots(TSLOTS), layers(PQ), startCap(capacity_per_time_slot),
+          dep_graph_raw(dep_from_main) {
+
+        T  = (int)tasks.size();
+        N  = (int)nodes.size();
+        TS = (int)timeSlots.size();
+
+        earliestStart.assign(T, 0);
+        latestStart.assign(T, 0);
+        finishTime.assign(T, -1);
+        assigned.assign(T, false);
+        dep_graph.assign(T + 1, vector<int>());
+
+        used_cpu.assign(N, vector<int>(max(TS, 1), 0));
+        used_ram.assign(N, vector<int>(max(TS, 1), 0));
+
+        for (int i = 0; i < (int)dep_graph_raw.size(); i++) {
+            for (int j : dep_graph_raw[i]) {
+                if (j > 0 && j <= T) {
+                    dep_graph[i].push_back(j - 1);
+                }
             }
         }
+
+        for (int i = 0; i < T; i++) {
+            latestStart[i] = tasks[i].deadline - tasks[i].duration;
+        }
     }
+
 private:
-    void updateNodeCapPerTime(int nodeId, int timeSlot, int cpu) {
-        timeSlotCap[{nodes[nodeId].name, timeSlot}] -= cpu;
-    }
-    
-    bool createPath(vector<int>& currentPriority) {
-        pq.pop_back();
-        for (auto x : currentPriority) {
-            x--;
-            for (int i = leastStart[x]; i <= mostStart[x]; i++) {
-                for (int j = 0; j < numberOfNodes; j++) {
-                    if (tasks[x].cpu <= timeSlotCap[{nodes[j].name, i}]) {
-                        paths.insert({{x * nTS + i + 1, j + (numberOfTasks * nTS) + 1}, 
-                                     {costs[{tasks[x].name, nodes[j].name}], i}});
-                        updateNodeCapPerTime(j, i, tasks[x].cpu);             
-                    }
-                }
+    bool feasible_on_node_time_for_build(int taskId, int nodeId, int start) {
+        if (taskId < 0 || taskId >= T || nodeId < 0 || nodeId >= N) return false;
+        const auto &tk = tasks[taskId];
+        const auto &nd = nodes[nodeId];
+
+        if (start < 0) return false;
+        if (tk.duration <= 0) return false;
+        if (start + tk.duration > TS) return false;
+        if (start < earliestStart[taskId] || start > latestStart[taskId]) return false;
+
+        for (int t = start; t < start + tk.duration; ++t) {
+            auto it = startCap.find({nd.name, t});
+            int node_cpu_cap = (it != startCap.end() ? it->second : INT_MAX);
+            if (used_cpu[nodeId][t] + tk.cpu > node_cpu_cap) {
+                return false;
             }
         }
-
-        if (!paths.empty()) {
-            return true;
-        } else {
-            return false;
-        }
+        return true;
     }
 
-    void setStartTime(int taskId, int time) {
-        for (auto &x : dependency_graph[taskId]) {
-            leastStart[x] = time;
-        }
-    }
-
-    void removeUselessPaths(int Id) {
-        int taskId = ((Id - 1) / nTS);
-        for (int i = taskId * nTS + 1; i <= (taskId + 1) * nTS; i++) {
-            for (auto it = paths.begin(); it != paths.end();) {
-                if (it->first.first == i) {
-                    it = paths.erase(it);
-                } else {
-                    ++it;
-                }
-            }
-        }
-    }
-
-    pair<pair<int, int>, pair<int, int>> findShortestPath() {
-        auto it = paths.begin();
-        if (it == paths.end()) {
-            return {{-1, -1}, {-1, -1}};
-        }
-
-        pair<pair<int, int>, pair<int, int>> min_element = *it;
-        int taskId = min_element.first.first;
-
-        removeUselessPaths(taskId);
-
-        return min_element;
-    }
 public:
-    pair<int, int> minCostMaxFlow() {
+    pair<int,int> minCostMaxFlow() {
         int min_cost = 0, max_flow = 0;
-        while (true) {
-            if (pq.empty()) {
-                break;
+        for (int li = 0; li < (int)layers.size(); ++li) {
+            const auto &layerTasks = layers[li];
+
+            vector<int> pendingTasks;
+            for (int tid : layerTasks) {
+                if (tid >= 0 && tid < T && !assigned[tid]) pendingTasks.push_back(tid);
             }
-            vector<int> currentPriority = pq[pq.size() - 1];
-            bool flag = createPath(currentPriority);
-            if (flag) {
-                while (!paths.size()) {
-                    pair<pair<int, int>, pair<int, int>> res = findShortestPath();
-                    pair<pair<int, int>, pair<int, int>> target = {{-1, -1}, {-1, -1}};
-                    if (res == target) {
-                        break;
+            if (pendingTasks.empty()) continue;
+
+            map<pair<int,int>, int> assignIndex; 
+            vector<pair<int,int>> assignList;     
+            vector<vector<pair<int,int>>> task_to_assigns(T); 
+
+            for (int taskId : pendingTasks) {
+                for (int nodeId = 0; nodeId < N; ++nodeId) {
+                    auto itc = exec_cost.find({tasks[taskId].name, nodes[nodeId].name});
+                    if (itc == exec_cost.end()) continue;
+                    int c = itc->second;
+                    if (c >= INF) continue;
+
+                    int est = max(0, earliestStart[taskId]);
+                    int lst = latestStart[taskId];
+                    if (lst < est) continue;
+                    for (int start = est; start <= lst; ++start) {
+                        if (!feasible_on_node_time_for_build(taskId, nodeId, start)) continue;
+                        auto key = make_pair(nodeId, start);
+                        if (!assignIndex.count(key)) {
+                            int idx = (int)assignList.size();
+                            assignIndex[key] = idx;
+                            assignList.push_back(key);
+                        }
+                        int aidx = assignIndex[key];
+                        task_to_assigns[taskId].push_back({aidx, c});
                     }
-                    int taskId = res.first.first;
-                    int nodeId = res.first.second;
-                    int startTime = res.second.second;
-
-                    if (taskId == -1) {
-                        break;
-                    }
-
-                    min_cost += res.second.first;
-                    max_flow++;
-
-                    int tId = int(taskId / nTS);
-                    assignedTasks[tasks[tId].name] = {nodes[nodeId].name, startTime};
-                    setStartTime(tId, startTime + tasks[tId].duration);
                 }
-            } else {
-                break;
+            }
+
+            if (assignList.empty()) {
+                continue;
+            }
+
+            int P = (int)pendingTasks.size();
+            int A = (int)assignList.size();
+            int S = 0;
+            int baseTask = 1;
+            int baseAssign = baseTask + P;
+            int sink = baseAssign + A;
+            int Gsize = sink + 1;
+
+            MinCostMaxFlow mcmf(Gsize);
+
+            unordered_map<int,int> idxToTask; 
+            for (int i = 0; i < P; ++i) {
+                idxToTask[i] = pendingTasks[i];
+            }
+
+            for (int i = 0; i < P; ++i) {
+                mcmf.addEdge(S, baseTask + i, 1, 0);
+            }
+
+            for (int a = 0; a < A; ++a) {
+                mcmf.addEdge(baseAssign + a, sink, 1, 0);
+            }
+
+            for (int i = 0; i < P; ++i) {
+                int taskId = idxToTask[i];
+                for (auto &pr : task_to_assigns[taskId]) {
+                    int aidx = pr.first;
+                    int c = pr.second;
+                    mcmf.addEdge(baseTask + i, baseAssign + aidx, 1, c);
+                }
+            }
+
+            auto [flow, cost] = mcmf.minCostMaxFlow(S, sink);
+
+            if (flow <= 0) {
+                continue;
+            }
+
+            for (int i = 0; i < P; ++i) {
+                int taskNodeIdx = baseTask + i;
+                for (auto &e : mcmf.g[taskNodeIdx]) {
+                    if (e.to >= baseAssign && e.to < baseAssign + A) {
+                        int assignNodeIdx = e.to - baseAssign;
+                        if (e.cap == 0) {
+                            int taskId = idxToTask[i];
+                            auto pr = assignList[assignNodeIdx];
+                            int nodeId = pr.first;
+                            int start = pr.second;
+
+                            bool ok = feasible_on_node_time_for_build(taskId, nodeId, start);
+                            if (!ok) {
+                                continue;
+                            }
+
+                            for (int t = start; t < start + tasks[taskId].duration; ++t) {
+                                used_cpu[nodeId][t] += tasks[taskId].cpu;
+                                used_ram[nodeId][t] += tasks[taskId].ram;
+                            }
+                            assigned[taskId] = true;
+                            finishTime[taskId] = start + tasks[taskId].duration;
+                            assignment[tasks[taskId].name] = {nodes[nodeId].name, start};
+
+                            for (int v : dep_graph[taskId + 1]) {
+                                if (v >= 0 && v < T) {
+                                    earliestStart[v] = max(earliestStart[v], finishTime[taskId]);
+                                }
+                            }
+
+                            min_cost += exec_cost[{tasks[taskId].name, nodes[nodeId].name}];
+                            max_flow += 1;
+                        }
+                    }
+                }
             }
         }
 
         return {min_cost, max_flow};
+    }
+
+    void print_result_json() {
+        json out;
+        json sched = json::object();
+        for (auto &kv : assignment) {
+            const string& taskName = kv.first;
+            const string& nodeName = kv.second.first;
+            int start = kv.second.second;
+            sched[taskName] = { {"node", nodeName}, {"start_time", start} };
+        }
+        out["schedule"] = sched;
+
+        int total_cost = 0;
+        for (auto &kv : assignment) {
+            auto itc = exec_cost.find({kv.first, kv.second.first});
+            if (itc != exec_cost.end()) {
+                total_cost += itc->second;
+            }
+        }
+        
+        out["total_cost"] = total_cost;
+
+        bool valid = ((int)assignment.size() == T);
+        out["valid"] = valid;
+
+        cout << out.dump(2) << "\n";
+
+        string outputFileName = "phase2_output.json";
+        ofstream ofile(outputFileName);
+        if (ofile.is_open()) {
+            ofile << out.dump(2) << "\n";
+            ofile.close();
+        } else {
+            cerr << "Error: Could not open output file!" << endl;
+        }
     }
 };
 
 int main() {
     string file_name = "input2.json";
     ifstream file(file_name);
+    if (!file.is_open()) {
+        cerr << "Error: Could not open input file!" << endl;
+        return 1;
+    }
     json input;
     file >> input;
+    file.close();
 
     vector<string> T, N;
 
@@ -222,6 +358,17 @@ int main() {
         int duration = tasks[i]["duration"];
         taskNode tn(num++, name, cpu, ram, deadline, duration);
         taskNodes.push_back(tn);
+    }
+
+    json nodes_arr = input["nodes"];
+    vector<Node> nodes;
+    for (int i = 0; i < nodes_arr.size(); i++) {
+        string name = nodes_arr[i]["id"];
+        N.push_back(name);
+        int cpu_cap = nodes_arr[i]["cpu_capacity"];
+        int ram_cap = nodes_arr[i]["ram_capacity"];
+        Node nd(i, name, cpu_cap, ram_cap);
+        nodes.push_back(nd);
     }
 
     json exec_cost = input["exec_cost"];
@@ -253,7 +400,6 @@ int main() {
     map<string, int> task_mp;
     for (int i = 0; i < T.size(); i++) {
         task_mp[T[i]] = i;
-        cout << "Task: " << T[i] << ", id: " << task_mp[T[i]] << '\n';
     }
 
     vector<vector<int>> dependency_graph(T.size() + 1);
@@ -292,7 +438,7 @@ int main() {
                     }
                     priority[x] = priority[v] + 1;
                     idx = max(idx, priority[x]);
-                    pq[priority[x] - 1].push_back(x);
+                    pq[priority[x] - 1].push_back(x - 1); 
                     q.push(x);
                 }
             }
@@ -306,10 +452,11 @@ int main() {
         pq.pop_back();
     }
 
-    reverse(pq.begin(), pq.end());
+    timeExpandedMCMF temcmf(taskNodes, nodes, exec_cost_mp, timeStamps, pq, capacity_per_time_slot, dependency_graph);
 
-    timeExpandedMCMF temcmf(timeStamps, pq, capacity_per_time_slot, dependency_graph);
+    auto [min_cost, max_flow] = temcmf.minCostMaxFlow();
+    cout << "Flow: " << max_flow << ", Cost: " << min_cost << "\n";
+    temcmf.print_result_json();
 
     return 0;
 }
-
