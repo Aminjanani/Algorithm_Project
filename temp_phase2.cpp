@@ -70,9 +70,19 @@ public:
         latestStart.assign(T, 0);
         finishTime.assign(T, -1);
         assigned.assign(T, false);
+        dep_graph.assign(T + 1, vector<int>());
 
-        used_cpu.assign(N, vector<int>(max(TS,1), 0));
-        used_ram.assign(N, vector<int>(max(TS,1), 0));
+        used_cpu.assign(N, vector<int>(max(TS, 1), 0));
+        used_ram.assign(N, vector<int>(max(TS, 1), 0));
+
+        // Initialize dep_graph based on dep_graph_raw
+        for (int i = 0; i < dep_graph_raw.size(); i++) {
+            for (int j : dep_graph_raw[i]) {
+                if (j > 0 && j <= T) {
+                    dep_graph[i].push_back(j - 1); // Adjust to 0-based indexing
+                }
+            }
+        }
 
         for (int i = 0; i < T; i++) {
             latestStart[i] = tasks[i].deadline - tasks[i].duration;
@@ -112,7 +122,7 @@ private:
         if (start + tk.duration > TS) {
             return false;
         }
-        if (start > latestStart[taskId]) {
+        if (start < earliestStart[taskId] || start > latestStart[taskId]) {
             return false;
         }
 
@@ -126,10 +136,9 @@ private:
             if (t < 0 || t >= TS) {
                 return false;
             }
-            if (used_cpu[nodeId][t] + tk.cpu > nd.cpu_cap) {
-                return false;
-            }
-            if (used_ram[nodeId][t] + tk.ram > nd.ram_cap) {
+            auto it = startCap.find({nd.name, t});
+            int node_cpu_cap = (it != startCap.end() ? it->second : INT_MAX);
+            if (used_cpu[nodeId][t] + tk.cpu > node_cpu_cap) {
                 return false;
             }
         }
@@ -179,11 +188,9 @@ private:
         finishTime[taskId] = start + tasks[taskId].duration;
         assignment[tasks[taskId].name] = {nodes[nodeId].name, start};
 
-        if ((int)dep_graph.size() == T) {
-            for (int v : dep_graph[taskId]) {
-                if (v >= 0 && v < T) {
-                    earliestStart[v] = max(earliestStart[v], finishTime[taskId]);
-                }
+        for (int v : dep_graph[taskId + 1]) {
+            if (v >= 0 && v < T) {
+                earliestStart[v] = max(earliestStart[v], finishTime[taskId]);
             }
         }
 
@@ -245,15 +252,25 @@ public:
 
         string outputFileName = "phase2_output.json";
         ofstream ofile(outputFileName);
-        ofile << out.dump(2) << "\n";
+        if (ofile.is_open()) {
+            ofile << out.dump(2) << "\n";
+            ofile.close();
+        } else {
+            cerr << "Error: Could not open output file!" << endl;
+        }
     }
 };
 
 int main() {
     string file_name = "input2.json";
     ifstream file(file_name);
+    if (!file.is_open()) {
+        cerr << "Error: Could not open input file!" << endl;
+        return 1;
+    }
     json input;
     file >> input;
+    file.close();
 
     vector<string> T, N;
 
@@ -362,8 +379,6 @@ int main() {
     while (ext--) {
         pq.pop_back();
     }
-
-    reverse(pq.begin(), pq.end());
 
     timeExpandedMCMF temcmf(taskNodes, nodes, exec_cost_mp, timeStamps, pq, capacity_per_time_slot, dependency_graph);
 
