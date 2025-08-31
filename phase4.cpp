@@ -21,6 +21,12 @@ struct taskNode {
     }
 };
 
+struct taskDetails {
+    int start_time;
+    bool meet_deadline;
+    taskDetails() : start_time(-1), meet_deadline(false) {}
+};
+
 int main() {
     string file_name = "input4.json";
     ifstream file(file_name);
@@ -60,11 +66,19 @@ int main() {
 
     vector<int> timeSlots = input["time_slot"];
 
+    // penalty factor
+    int penalty = 2;
+
+    map<string, taskDetails> outputDetails;
+    for (int i = 0; i < tasks.size(); i++) {
+        outputDetails[tasks[i]] = taskDetails();
+    }
+
     // compute all possible subset of the original tasks
     auto getAllSubsets = [&](const set<string>& s) -> vector<set<string>> {
         int n = s.size();
         vector<string> elements(s.begin(), s.end());
-        vector<set<string>> subSets;
+        vector<set<string>> subsets;
         for (int mask = 0; mask < (1 << n); mask++) {
             set<string> subset;
             for (int i = 0; i < n; i++) {
@@ -72,9 +86,9 @@ int main() {
                     subset.insert(elements[i]); 
                 }
             }
-            subSets.push_back(subset);
+            subsets.push_back(subset);
         }
-        return subSets;
+        return subsets;
     };
 
     // compute the maximum possible start time and total cpu for a subset of tasks
@@ -105,14 +119,15 @@ int main() {
         }
 
         vector<set<string>> allSubsets = getAllSubsets(Tasks);
-        map<pair<int, set<string>>, long int> dp;
+        map<pair<int, set<string>>, long long> dp;
         for (int j = 0; j < allSubsets.size(); j++) {
             pair<int, int> target = getMaxStartTime(allSubsets[j]);
             if (target.first >= 0 && target.second <= timeSlotCap[0]) {
                 dp[{0, allSubsets[j]}] = 0;
             } else {
-                dp[{0, allSubsets[j]}] = -1;
+                dp[{0, allSubsets[j]}] = INT_MAX;
             }
+            parent[{0, allSubsets[j]}] = {-1, {}};
         }
         for (int i = 1; i < timeSlots.size(); i++) {
             for (int j = 0; j < allSubsets.size(); j++) {
@@ -120,25 +135,57 @@ int main() {
             }
         }
 
+        int maxDoneSubTasksId;
         for (int i = 1; i < timeSlots.size(); i++) {
             for (int j = 0; j < allSubsets.size(); j++) {
-                vector<set<string>> subsubset = getAllSubsets(allSubsets[j]);
-                for (int k = 0; k < subsubset.size(); k++) {
-                    set<string> diff_set = diff(allSubsets[j], subsubset[k]);
-                    if (subsubset[k].size() == 0) {
-                        dp[{i, allSubsets[j]}] = dp[{i - 1, diff_set}] + 1;
+                vector<set<string>> subsubsets = getAllSubsets(allSubsets[j]);
+                for (int k = 0; k < subsubsets.size(); k++) {
+                    set<string> diff_set = diff(allSubsets[j], subsubsets[k]);
+                    if (subsubsets[k].size() == 0) {
+                        dp[{i, allSubsets[j]}] = dp[{i - 1, diff_set}] + penalty;
                         parent[{i, allSubsets[j]}] = {i - 1, diff_set};
                     } else {
-                        pair<int, int> target = getMaxStartTime(subsubset[k]);
-                        if (target.first >= i && target.second <= timeSlotCap[i]) {
+                        auto [max_time, total_cpu] = getMaxStartTime(subsubsets[k]);
+                        if (max_time >= i && total_cpu <= timeSlotCap[i]) {
                             if (dp[{i, allSubsets[j]}] > dp[{i - 1, diff_set}]) {
                                 dp[{i, allSubsets[j]}] = dp[{i - 1, diff_set}];
                                 parent[{i, allSubsets[j]}] = {i - 1, diff_set};
+                                maxDoneSubTasksId = j;
                             }
                         }
                     }
                 }
             }
+        }
+
+        int idx = -1;
+        long long min_cost = INT_MAX;
+        for (int i = 0; i < timeSlots.size(); i++) {
+            if (dp[{i, allSubsets[maxDoneSubTasksId]}] != INT_MAX) {
+                if (min_cost > dp[{i, allSubsets[maxDoneSubTasksId]}]) {
+                    idx = i;
+                    min_cost = dp[{i, allSubsets[maxDoneSubTasksId]}];
+                }
+            }
+        }
+
+        int jdx = maxDoneSubTasksId;
+        long long total_cost = dp[{idx, allSubsets[jdx]}];
+        
+        // add penalty for each undone task
+        total_cost += penalty * (T.size() - idx);
+
+        while (true) {
+            if (parent[{idx, allSubsets[jdx]}] == make_pair(-1, set<string>())) {
+                break;
+            }
+            for (auto &x : allSubsets[jdx]) {
+                outputDetails[x].start_time = idx;
+                outputDetails[x].meet_deadline = true;
+            }
+            auto it = find(allSubsets.begin(), allSubsets.end(), allSubsets[jdx]);
+            idx = parent[{idx, allSubsets[jdx]}].first;
+            jdx = it - allSubsets.begin();
         }
     };
 
