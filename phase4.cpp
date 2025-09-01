@@ -121,8 +121,8 @@ int main() {
         vector<set<string>> allSubsets = getAllSubsets(Tasks);
         map<pair<int, set<string>>, long long> dp;
         for (int j = 0; j < allSubsets.size(); j++) {
-            pair<int, int> target = getMaxStartTime(allSubsets[j]);
-            if (target.first >= 0 && target.second <= timeSlotCap[0]) {
+            auto [max_start_time, total_cpu] = getMaxStartTime(allSubsets[j]);
+            if (max_start_time >= 0 && total_cpu <= timeSlotCap[0]) {
                 dp[{0, allSubsets[j]}] = 0;
             } else {
                 dp[{0, allSubsets[j]}] = INT_MAX;
