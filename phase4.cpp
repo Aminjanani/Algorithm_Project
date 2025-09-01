@@ -69,9 +69,9 @@ int main() {
     // penalty factor
     int penalty = 2;
 
-    map<string, taskDetails> outputDetails;
+    map<string, taskDetails> schedulingDetails;
     for (int i = 0; i < tasks.size(); i++) {
-        outputDetails[tasks[i]] = taskDetails();
+        schedulingDetails[tasks[i]] = taskDetails();
     }
 
     // compute all possible subset of the original tasks
@@ -142,11 +142,13 @@ int main() {
                 for (int k = 0; k < subsubsets.size(); k++) {
                     set<string> diff_set = diff(allSubsets[j], subsubsets[k]);
                     if (subsubsets[k].size() == 0) {
-                        dp[{i, allSubsets[j]}] = dp[{i - 1, diff_set}] + penalty;
+                        if (dp[{i - 1, diff_set}] != INT_MAX) {
+                            dp[{i, allSubsets[j]}] = dp[{i - 1, diff_set}] + penalty;
+                        }
                         parent[{i, allSubsets[j]}] = {i - 1, diff_set};
                     } else {
-                        auto [max_time, total_cpu] = getMaxStartTime(subsubsets[k]);
-                        if (max_time >= i && total_cpu <= timeSlotCap[i]) {
+                        auto [max_start_time, total_cpu] = getMaxStartTime(subsubsets[k]);
+                        if (max_start_time >= i && total_cpu <= timeSlotCap[i]) {
                             if (dp[{i, allSubsets[j]}] > dp[{i - 1, diff_set}]) {
                                 dp[{i, allSubsets[j]}] = dp[{i - 1, diff_set}];
                                 parent[{i, allSubsets[j]}] = {i - 1, diff_set};
@@ -171,22 +173,24 @@ int main() {
 
         int jdx = maxDoneSubTasksId;
         long long total_cost = dp[{idx, allSubsets[jdx]}];
-        
-        // add penalty for each undone task
-        total_cost += penalty * (T.size() - idx);
 
+        int done_tasks = 0;
         while (true) {
             if (parent[{idx, allSubsets[jdx]}] == make_pair(-1, set<string>())) {
                 break;
             }
             for (auto &x : allSubsets[jdx]) {
-                outputDetails[x].start_time = idx;
-                outputDetails[x].meet_deadline = true;
+                schedulingDetails[x].start_time = idx;
+                schedulingDetails[x].meet_deadline = true;
+                done_tasks++;
             }
             auto it = find(allSubsets.begin(), allSubsets.end(), allSubsets[jdx]);
             idx = parent[{idx, allSubsets[jdx]}].first;
             jdx = it - allSubsets.begin();
         }
+
+        // add penalty for each undone task
+        total_cost += penalty * (T.size() - done_tasks);
     };
 
     return 0;
