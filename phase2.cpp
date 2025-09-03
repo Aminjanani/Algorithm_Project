@@ -111,7 +111,7 @@ private:
     vector<int> finishTime;      
     vector<bool> assigned;       
     vector<vector<int>> used_cpu;  
-    vector<vector<int>> used_ram;  
+    //vector<vector<int>> used_ram;  
     map<string, pair<string,int>> assignment; 
 
 public:
@@ -137,7 +137,7 @@ public:
         dep_graph.assign(T + 1, vector<int>());
 
         used_cpu.assign(N, vector<int>(max(TS, 1), 0));
-        used_ram.assign(N, vector<int>(max(TS, 1), 0));
+        //used_ram.assign(N, vector<int>(max(TS, 1), 0));
 
         for (int i = 0; i < (int)dep_graph_raw.size(); i++) {
             for (int j : dep_graph_raw[i]) {
@@ -273,7 +273,7 @@ public:
 
                             for (int t = start; t < start + tasks[taskId].duration; ++t) {
                                 used_cpu[nodeId][t] += tasks[taskId].cpu;
-                                used_ram[nodeId][t] += tasks[taskId].ram;
+                                //used_ram[nodeId][t] += tasks[taskId].ram;
                             }
                             assigned[taskId] = true;
                             finishTime[taskId] = start + tasks[taskId].duration;
@@ -297,7 +297,7 @@ public:
     }
 
     void print_result_json() {
-        json out;
+        json output;
         json sched = json::object();
         for (auto &kv : assignment) {
             const string& taskName = kv.first;
@@ -305,7 +305,7 @@ public:
             int start = kv.second.second;
             sched[taskName] = { {"node", nodeName}, {"start_time", start} };
         }
-        out["schedule"] = sched;
+        output["schedule"] = sched;
 
         int total_cost = 0;
         for (auto &kv : assignment) {
@@ -315,20 +315,20 @@ public:
             }
         }
         
-        out["total_cost"] = total_cost;
+        output["total_cost"] = total_cost;
 
         bool valid = ((int)assignment.size() == T);
-        out["valid"] = valid;
+        output["valid"] = valid;
 
-        cout << out.dump(2) << "\n";
+        cout << output.dump(2) << "\n";
 
         string outputFileName = "phase2_output.json";
         ofstream ofile(outputFileName);
         if (ofile.is_open()) {
-            ofile << out.dump(2) << "\n";
+            ofile << output.dump(2) << '\n';
             ofile.close();
         } else {
-            cerr << "Error: Could not open output file!" << endl;
+            cout << "Error: Could not open output file!" << '\n';
         }
     }
 };
@@ -337,7 +337,7 @@ int main() {
     string file_name = "input2.json";
     ifstream file(file_name);
     if (!file.is_open()) {
-        cerr << "Error: Could not open input file!" << endl;
+        cout << "Error: Could not open input file!" << '\n';
         return 1;
     }
     json input;
@@ -423,6 +423,8 @@ int main() {
     vector<bool> visited(T.size() + 1, false);
     vector<int> priority(T.size() + 1);
     int idx = -1;
+
+    // prioritizing tasks using BFS
     auto bfs = [&](int root) {
         visited[root] = true;
         priority[root] = 0;
@@ -455,7 +457,7 @@ int main() {
     timeExpandedMCMF temcmf(taskNodes, nodes, exec_cost_mp, timeStamps, pq, capacity_per_time_slot, dependency_graph);
 
     auto [min_cost, max_flow] = temcmf.minCostMaxFlow();
-    cout << "Flow: " << max_flow << ", Cost: " << min_cost << "\n";
+    cout << "Max-Flow(Done Task): " << max_flow << ", Min-Cost: " << min_cost << "\n";
     temcmf.print_result_json();
 
     return 0;
