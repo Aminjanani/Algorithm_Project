@@ -17,7 +17,7 @@ struct taskNode {
         name = NAME;
         cpu = CPU;
         ram = RAM;
-        duration = DURATION;
+        duration = DURATION;  
         deadline = DEADLINE;
     }
 };
@@ -31,6 +31,10 @@ struct taskDetails {
 int main() {
     string file_name = "input4.json";
     ifstream file(file_name);
+    if (!file.is_open()) {
+        cout << "Error: Could not open input file!" << '\n';
+        return 1;
+    }
     json input;
     file >> input;
 
@@ -147,7 +151,7 @@ int main() {
                 }
             }
         }
-        
+
         int idx = -1, maxDoneSubTasksId = -1;
         long long min_cost = INT_MAX;
         for (int j = 0; j < allSubsets.size(); j++) {
@@ -216,7 +220,16 @@ int main() {
 
         output["total_idle_time"] = 0;
         output["penalty_cost"] = penalty * (T.size() - done_tasks);
-        cout << output.dump(2) << endl;
+
+        string outputFileName = "phase4_output.json";
+        ofstream ofile(outputFileName);
+        if (ofile.is_open()) {
+            ofile << output.dump(2) << '\n';
+            ofile.close();
+        } else {
+            cout << "Error: Could not open output file!" << '\n';
+        }
+        cout << output.dump(2) << '\n';
     };
 
     fitTasks();
