@@ -1,4 +1,5 @@
 #include <bits/stdc++.h>
+#include <optional>
 #include "json.hpp"
 
 using namespace std;
@@ -17,15 +18,17 @@ struct taskNode {
     int cpu;
     int ram;
     int deadline;
+    int duration;
     map<int, int> exec_cost;
 
-    taskNode() : id(0), name(""), cpu(0), ram(0), deadline(0) {}
-    taskNode(int ID, string NAME, int CPU, int RAM, int DEADLINE) {
+    taskNode() : id(0), name(""), cpu(0), ram(0), deadline(0), duration(1) {}
+    taskNode(int ID, string NAME, int CPU, int RAM, int DEADLINE, int DURATION) {
         id = ID;
         name = NAME;
         cpu = CPU;
         ram = RAM;
         deadline = DEADLINE;
+        duration = DURATION;
     }
 };
 
@@ -74,6 +77,27 @@ int main() {
     vector<event> events;
     vector<taskNode> tasks;
     set<string> task_names;
+    // Read previous tasks
+    if (input.contains("previous_tasks")) {
+        for (auto& t : input["previous_tasks"]) {
+            string task_name = t["id"];
+            int cpu = t["cpu"];
+            int ram = t["ram"];
+            int deadline = t["deadline"];
+            int duration = t.contains("duration") ? static_cast<int>(t["duration"].get<int>()) : 1;
+            int task_id = stoi(task_name.substr(1));
+            taskNode tn(task_id, task_name, cpu, ram, deadline, duration);
+            if (t.contains("exec_cost")) {
+                for (auto& [node_str, cost] : t["exec_cost"].items()) {
+                    int node_id = stoi(node_str.substr(1));
+                    tn.exec_cost[node_id] = cost;
+                }
+            }
+            tasks.push_back(tn);
+            task_names.insert(task_name);
+        }
+    }
+    // Read new tasks from events
     for (auto& item : input["events"]) {
         string type = item["type"];
         int time = item.contains("time") ? static_cast<int>(item["time"]) : -1;
@@ -89,9 +113,10 @@ int main() {
             cpu = t["cpu"];
             ram = t["ram"];
             deadline = t["deadline"];
+            int duration = t.contains("duration") ? static_cast<int>(t["duration"]) : 1;
 
             int task_id = stoi(task_name.substr(1));
-            taskNode tn(task_id, task_name, cpu, ram, deadline);
+            taskNode tn(task_id, task_name, cpu, ram, deadline, duration);
             if (t.contains("exec_cost")) {
                 for (auto& [node_str, cost] : t["exec_cost"].items()) {
                     int node_id = stoi(node_str.substr(1));
@@ -132,31 +157,28 @@ int main() {
             time_slots.insert(time);
         }
     }
-
-    for (const auto& s : schedules) {
-        task_names.insert(s.task);
-        int task_id = stoi(s.task.substr(1));
-        taskNode tn(task_id, s.task, 1, 1, s.start_time + 2); 
-        for (const auto& node : nodes) {
-            int node_id = stoi(node.substr(1));
-            tn.exec_cost[node_id] = 1; // Default exec_cost
-        }
-        tasks.push_back(tn);
+    // Add time slots up to max deadline
+    for (const auto& t : tasks) {
+        time_slots.insert(t.deadline);
     }
-    vector<string> all_tasks(task_names.begin(), task_names.end());
 
-    // Initialize node capacities
+    // Initialize node capacities from node_capacity
     map<string, map<int, int>> node_cpu_capacity;
-    for (const auto& node : nodes) {
-        for (const auto& time : time_slots) {
-            node_cpu_capacity[node][time] = 2; // Default capacity
+    if (input.contains("node_capacity")) {
+        for (auto& [node, capacities] : input["node_capacity"].items()) {
+            for (auto& [time_str, cap] : capacities.items()) {
+                int time_val = stoi(time_str);
+                node_cpu_capacity[node][time_val] = cap;
+            }
         }
     }
+    // Apply node_capacity_update
     for (const auto& [node, updates] : node_capacity_update) {
         for (const auto& [time, cap] : updates) {
             node_cpu_capacity[node][time] = cap;
         }
     }
+    // Apply node failures
     for (const auto& e : events) {
         if (e.type == "node_failure") {
             for (int t = e.time; t <= *time_slots.rbegin(); t++) {
@@ -167,11 +189,12 @@ int main() {
 
     // Initialize scheduling details
     map<string, scheduleDetails> scheduling_details;
+    vector<string> all_tasks(task_names.begin(), task_names.end());
     for (const auto& task : all_tasks) {
         scheduling_details[task] = scheduleDetails();
     }
 
-    // Get all subsets of tasks
+    // Compute all possible subsets of tasks
     auto getAllSubsets = [&](const set<string>& s) -> vector<set<string>> {
         int n = s.size();
         vector<string> elements(s.begin(), s.end());
@@ -193,19 +216,9 @@ int main() {
     for (const auto& t : tasks) {
         task_cpu[t.name] = t.cpu;
         task_deadline[t.name] = t.deadline;
-        task_duration[t.name] = 1; 
+        task_duration[t.name] = t.duration;
         for (const auto& [node_id, cost] : t.exec_cost) {
             task_exec_cost[t.name]["N" + to_string(node_id)] = cost;
-        }
-    }
- 
-    for (const auto& item : input["events"]) {
-        if (item["type"] == "new_task") {
-            auto t = item["task"];
-            string task_name = t["id"];
-            if (t.contains("duration")) {
-                task_duration[task_name] = t["duration"];
-            }
         }
     }
 
@@ -214,15 +227,14 @@ int main() {
         prev_schedule[s.task] = {s.node, s.start_time};
     }
 
-    // fit tasks into time slots using dynamic programming
-    // dp definition : dp[time_slot][sub_task_k][node_n] : minimum cost of doing sub_task_k until time_slot 
-    // so the last sub_task(which is a subset of sub_task_k itself) is done on node_n
+    // Fit tasks into time slots using dynamic programming
     auto fitTasks = [&]() {
         set<string> Tasks(all_tasks.begin(), all_tasks.end());
         vector<set<string>> allSubsets = getAllSubsets(Tasks);
         map<tuple<int, string, set<string>>, long long> dp;
         map<tuple<int, string, set<string>>, tuple<int, string, set<string>>> parent;
 
+        // Initialize DP for time 0
         for (const auto& node : nodes) {
             for (int j = 0; j < allSubsets.size(); j++) {
                 auto& subset = allSubsets[j];
@@ -241,7 +253,11 @@ int main() {
                 if (valid && total_cpu <= node_cpu_capacity[node][0]) {
                     long long cost = 0;
                     for (const auto& task : subset) {
-                        cost += task_exec_cost[task][node]; // Only exec_cost
+                        cost += task_exec_cost[task][node];
+                        // Add change penalty if task is reassigned
+                        if (prev_schedule.count(task) && (prev_schedule[task].first != node || prev_schedule[task].second != 0)) {
+                            cost += 2;
+                        }
                     }
                     dp[{0, node, subset}] = cost;
                 } else {
@@ -251,6 +267,7 @@ int main() {
             }
         }
 
+        // DP transitions
         for (int t : time_slots) {
             if (t == 0) continue;
             for (const auto& node : nodes) {
@@ -282,7 +299,11 @@ int main() {
                             if (prev_cost != INT_MAX) {
                                 long long cost = prev_cost;
                                 for (const auto& task : subsubset) {
-                                    cost += task_exec_cost[task][node]; 
+                                    cost += task_exec_cost[task][node];
+                                    // Add change penalty if task is reassigned
+                                    if (prev_schedule.count(task) && (prev_schedule[task].first != node || prev_schedule[task].second != t)) {
+                                        cost += 2;
+                                    }
                                 }
                                 if (dp[{t, node, subset}] > cost) {
                                     dp[{t, node, subset}] = cost;
@@ -290,7 +311,7 @@ int main() {
                                 }
                             }
                         }
-                        
+                        // No tasks scheduled at this time
                         if (subsubset.empty()) {
                             for (const auto& prev_node : nodes) {
                                 long long prev_cost = dp[{t - 1, prev_node, subset}];
@@ -305,6 +326,7 @@ int main() {
             }
         }
 
+        // Find optimal schedule
         int opt_time = -1;
         string opt_node;
         set<string> opt_subset;
@@ -323,6 +345,7 @@ int main() {
             }
         }
 
+        // Backtrack to assign tasks
         int done_tasks = 0;
         set<string> scheduled_tasks;
         map<int, map<string, set<string>>> assignments;
@@ -348,6 +371,7 @@ int main() {
             }
         }
 
+        // Greedy assignment for remaining tasks
         vector<string> remaining_tasks;
         for (const auto& task : all_tasks) {
             if (scheduling_details[task].start_time == -1) {
@@ -383,7 +407,19 @@ int main() {
                                 done_tasks++;
                                 assigned = true;
                                 break;
-                            } else if (!prev_schedule.count(task) || prev_schedule[task].first != node || prev_schedule[task].second != t) {
+                            }
+                        }
+                    }
+                }
+                if (assigned) break;
+            }
+            // Try alternative assignment only if original assignment is not possible
+            if (!assigned) {
+                for (int t : time_slots) {
+                    for (const auto& node : nodes) {
+                        if (task_exec_cost[task].count(node) && t + task_duration[task] <= task_deadline[task]) {
+                            int current_cpu = used_cpu[t][node];
+                            if (current_cpu + task_cpu[task] <= node_cpu_capacity[node][t]) {
                                 scheduling_details[task].node = node;
                                 scheduling_details[task].start_time = t;
                                 scheduling_details[task].meets_deadline = true;
@@ -395,21 +431,27 @@ int main() {
                             }
                         }
                     }
+                    if (assigned) break;
                 }
-                if (assigned) break;
             }
         }
 
+        // Calculate change count and execution cost
         int change_count = 0;
+        long long execution_cost = 0;
         for (const auto& task : all_tasks) {
-            if (prev_schedule.count(task) && (scheduling_details[task].start_time != prev_schedule[task].second ||
-                                              scheduling_details[task].node != prev_schedule[task].first)) {
-                change_count++;
-            } else if (task_names.count(task) && scheduling_details[task].start_time != -1) {
-                change_count++;
+            if (scheduling_details[task].start_time != -1) {
+                execution_cost += task_exec_cost[task][scheduling_details[task].node];
+                if (prev_schedule.count(task) && (scheduling_details[task].start_time != prev_schedule[task].second ||
+                                                  scheduling_details[task].node != prev_schedule[task].first)) {
+                    change_count++;
+                } else if (task_names.count(task) && !prev_schedule.count(task)) {
+                    change_count++;
+                }
             }
         }
 
+        // Output
         json output;
         output["updated_schedule"] = json::object();
         for (const auto& [task, details] : scheduling_details) {
@@ -425,7 +467,7 @@ int main() {
             if (prev_schedule.count(task) && (scheduling_details[task].start_time != prev_schedule[task].second ||
                                               scheduling_details[task].node != prev_schedule[task].first)) {
                 output["reassigned_tasks"].push_back(task);
-            } else if (task_names.count(task) && scheduling_details[task].start_time != -1) {
+            } else if (task_names.count(task) && !prev_schedule.count(task) && scheduling_details[task].start_time != -1) {
                 output["reassigned_tasks"].push_back(task);
             }
         }
@@ -435,9 +477,9 @@ int main() {
                 output["failed_tasks"].push_back(task);
             }
         }
-        output["total_cost"] = min_cost + 2 * (all_tasks.size() - done_tasks);
+        output["total_cost"] = execution_cost + 2 * change_count + 2 * (all_tasks.size() - done_tasks);
         output["change_penalty"] = 2;
-        cout << output.dump(2) << endl;
+        cout << output.dump(2) << '\n';
     };
 
     fitTasks();
