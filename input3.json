@@ -4,6 +4,44 @@
     "T2": {"node": "N2", "start_time": 1}, 
     "T3": {"node": "N1", "start_time": 2} 
   }, 
+  "previous_tasks": [
+    {
+      "id": "T1",
+      "cpu": 1,
+      "ram": 1,
+      "deadline": 2,
+      "duration": 1,
+      "exec_cost": {
+        "N1": 1,
+        "N2": 1,
+        "N3": 1
+      }
+    },
+    {
+      "id": "T2",
+      "cpu": 1,
+      "ram": 1,
+      "deadline": 3,
+      "duration": 1,
+      "exec_cost": {
+        "N1": 1,
+        "N2": 1,
+        "N3": 1
+      }
+    },
+    {
+      "id": "T3",
+      "cpu": 1,
+      "ram": 1,
+      "deadline": 4,
+      "duration": 1,
+      "exec_cost": {
+        "N1": 1,
+        "N2": 1,
+        "N3": 1
+      }
+    }
+  ],
   "events": [ 
     { 
       "type": "node_failure", 
@@ -20,11 +58,17 @@
         "duration": 1, 
         "exec_cost": { 
           "N1": 3, 
+          "N2": 3, 
           "N3": 2 
         } 
       } 
     } 
   ], 
+  "node_capacity": {
+    "N1": {"0": 2, "1": 2, "2": 2, "3": 2, "4": 2},
+    "N2": {"0": 2, "1": 2, "2": 2, "3": 2, "4": 2},
+    "N3": {"0": 2, "1": 2, "2": 2, "3": 2, "4": 2}
+  },
   "node_capacity_update": { 
     "N1": {"2": 1},  
     "N3": {"1": 2}   
