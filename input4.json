@@ -11,5 +11,6 @@
     "2": {"cpu": 2}, 
     "3": {"cpu": 2} 
   }, 
-  "time_slots": [0, 1, 2, 3] 
+  "time_slots": [0, 1, 2, 3],
+  "penalty_factor": 2
 }
