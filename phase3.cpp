@@ -473,6 +473,14 @@ int main() {
         }
         output["total_cost"] = execution_cost + 2 * change_count + 2 * (all_tasks.size() - done_tasks);
         output["change_penalty"] = 2;
+        string outputFileName = "phase3_output.json";
+        ofstream ofile(outputFileName);
+        if (ofile.is_open()) {
+            ofile << output.dump(2) << '\n';
+            ofile.close();
+        } else {
+            cout << "Error: Could not open output file!" << '\n';
+        }
         cout << output.dump(2) << '\n';
     };
 
