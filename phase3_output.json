@@ -1,0 +1,26 @@
+{
+  "change_penalty": 2,
+  "failed_tasks": [],
+  "reassigned_tasks": [
+    "T2"
+  ],
+  "total_cost": 8,
+  "updated_schedule": {
+    "T1": {
+      "node": "N1",
+      "start_time": 0
+    },
+    "T2": {
+      "node": "N1",
+      "start_time": 0
+    },
+    "T3": {
+      "node": "N1",
+      "start_time": 2
+    },
+    "T4": {
+      "node": "N2",
+      "start_time": 0
+    }
+  }
+}
