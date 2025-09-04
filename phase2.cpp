@@ -1,4 +1,5 @@
 #include <bits/stdc++.h>
+#include <optional>
 #include "json.hpp"
 
 using namespace std;
@@ -63,10 +64,14 @@ struct MinCostMaxFlow {
             pq.push({0, s});
             while (!pq.empty()) {
                 auto [d, u] = pq.top(); pq.pop();
-                if (d != dist[u]) continue;
+                if (d != dist[u]) {
+                    continue;
+                }
                 for (int i = 0; i < (int)g[u].size(); ++i) {
                     Edge &e = g[u][i];
-                    if (e.cap <= 0) continue;
+                    if (e.cap <= 0) {
+                        continue;
+                    }
                     int rcost = e.cost + potential[u] - potential[e.to];
                     if (dist[e.to] > d + rcost) {
                         dist[e.to] = d + rcost;
@@ -76,8 +81,14 @@ struct MinCostMaxFlow {
                     }
                 }
             }
-            if (dist[t] == INF) break;
-            for (int i = 0; i < n; ++i) if (dist[i] < INF) potential[i] += dist[i];
+            if (dist[t] == INF) {
+                break;
+            }
+            for (int i = 0; i < n; ++i) {
+                if (dist[i] < INF) {
+                    potential[i] += dist[i];
+                }
+            }
             int addf = INF;
             for (int v = t; v != s; v = pv[v]) {
                 Edge &e = g[pv[v]][pe[v]];
@@ -94,7 +105,6 @@ struct MinCostMaxFlow {
         return {flow, cost};
     }
 };
-
 
 class timeExpandedMCMF {
 private:
@@ -159,10 +169,18 @@ private:
         const auto &tk = tasks[taskId];
         const auto &nd = nodes[nodeId];
 
-        if (start < 0) return false;
-        if (tk.duration <= 0) return false;
-        if (start + tk.duration > TS) return false;
-        if (start < earliestStart[taskId] || start > latestStart[taskId]) return false;
+        if (start < 0) {
+            return false;
+        }
+        if (tk.duration <= 0) {
+            return false;
+        }
+        if (start + tk.duration > TS) {
+            return false;
+        }
+        if (start < earliestStart[taskId] || start > latestStart[taskId]) {
+            return false;
+        }
 
         for (int t = start; t < start + tk.duration; ++t) {
             auto it = startCap.find({nd.name, t});
@@ -182,9 +200,13 @@ public:
 
             vector<int> pendingTasks;
             for (int tid : layerTasks) {
-                if (tid >= 0 && tid < T && !assigned[tid]) pendingTasks.push_back(tid);
+                if (tid >= 0 && tid < T && !assigned[tid]) {
+                    pendingTasks.push_back(tid);
+                }
             }
-            if (pendingTasks.empty()) continue;
+            if (pendingTasks.empty()) {
+                continue;
+            }
 
             map<pair<int,int>, int> assignIndex; 
             vector<pair<int,int>> assignList;     
@@ -193,13 +215,19 @@ public:
             for (int taskId : pendingTasks) {
                 for (int nodeId = 0; nodeId < N; ++nodeId) {
                     auto itc = exec_cost.find({tasks[taskId].name, nodes[nodeId].name});
-                    if (itc == exec_cost.end()) continue;
+                    if (itc == exec_cost.end()) {
+                        continue;
+                    }
                     int c = itc->second;
-                    if (c >= INF) continue;
+                    if (c >= INF) {
+                        continue;
+                    }
 
                     int est = max(0, earliestStart[taskId]);
                     int lst = latestStart[taskId];
-                    if (lst < est) continue;
+                    if (lst < est) {
+                        continue;
+                    }
                     for (int start = est; start <= lst; ++start) {
                         if (!feasible_on_node_time_for_build(taskId, nodeId, start)) continue;
                         auto key = make_pair(nodeId, start);
@@ -299,14 +327,14 @@ public:
 
     void print_result_json() {
         json output;
-        json sched = json::object();
+        json scheduling = json::object();
         for (auto &kv : assignment) {
             const string& taskName = kv.first;
             const string& nodeName = kv.second.first;
             int start = kv.second.second;
-            sched[taskName] = { {"node", nodeName}, {"start_time", start} };
+            scheduling[taskName] = { {"node", nodeName}, {"start_time", start} };
         }
-        output["schedule"] = sched;
+        output["schedule"] = scheduling;
 
         int total_cost = 0;
         for (auto &kv : assignment) {
@@ -463,4 +491,3 @@ int main() {
 
     return 0;
 }
-
