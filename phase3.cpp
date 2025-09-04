@@ -97,7 +97,7 @@ int main() {
             task_names.insert(task_name);
         }
     }
-    // Read new tasks from events
+    
     for (auto& item : input["events"]) {
         string type = item["type"];
         int time = item.contains("time") ? static_cast<int>(item["time"]) : -1;
@@ -157,12 +157,11 @@ int main() {
             time_slots.insert(time);
         }
     }
-    // Add time slots up to max deadline
+    
     for (const auto& t : tasks) {
         time_slots.insert(t.deadline);
     }
 
-    // Initialize node capacities from node_capacity
     map<string, map<int, int>> node_cpu_capacity;
     if (input.contains("node_capacity")) {
         for (auto& [node, capacities] : input["node_capacity"].items()) {
@@ -172,13 +171,13 @@ int main() {
             }
         }
     }
-    // Apply node_capacity_update
+    
     for (const auto& [node, updates] : node_capacity_update) {
         for (const auto& [time, cap] : updates) {
             node_cpu_capacity[node][time] = cap;
         }
     }
-    // Apply node failures
+    
     for (const auto& e : events) {
         if (e.type == "node_failure") {
             for (int t = e.time; t <= *time_slots.rbegin(); t++) {
@@ -187,7 +186,6 @@ int main() {
         }
     }
 
-    // Initialize scheduling details
     map<string, scheduleDetails> scheduling_details;
     vector<string> all_tasks(task_names.begin(), task_names.end());
     for (const auto& task : all_tasks) {
@@ -227,14 +225,17 @@ int main() {
         prev_schedule[s.task] = {s.node, s.start_time};
     }
 
-    // Fit tasks into time slots using dynamic programming
+    // fit tasks into time slots using dynamic programming
+    // dp[time_slot_i][subtask_j][node_k] = min_cost
+    // min_cost of doing subtask_j until time_slot_i using node_k for the last subtask assignment
+    // (subtask is a subset of subtask_j itself)
     auto fitTasks = [&]() {
         set<string> Tasks(all_tasks.begin(), all_tasks.end());
         vector<set<string>> allSubsets = getAllSubsets(Tasks);
         map<tuple<int, string, set<string>>, long long> dp;
         map<tuple<int, string, set<string>>, tuple<int, string, set<string>>> parent;
 
-        // Initialize DP for time 0
+        // dp base case setting
         for (const auto& node : nodes) {
             for (int j = 0; j < allSubsets.size(); j++) {
                 auto& subset = allSubsets[j];
@@ -254,7 +255,6 @@ int main() {
                     long long cost = 0;
                     for (const auto& task : subset) {
                         cost += task_exec_cost[task][node];
-                        // Add change penalty if task is reassigned
                         if (prev_schedule.count(task) && (prev_schedule[task].first != node || prev_schedule[task].second != 0)) {
                             cost += 2;
                         }
@@ -267,7 +267,7 @@ int main() {
             }
         }
 
-        // DP transitions
+        // dp transitions
         for (int t : time_slots) {
             if (t == 0) continue;
             for (const auto& node : nodes) {
@@ -300,7 +300,6 @@ int main() {
                                 long long cost = prev_cost;
                                 for (const auto& task : subsubset) {
                                     cost += task_exec_cost[task][node];
-                                    // Add change penalty if task is reassigned
                                     if (prev_schedule.count(task) && (prev_schedule[task].first != node || prev_schedule[task].second != t)) {
                                         cost += 2;
                                     }
@@ -311,7 +310,7 @@ int main() {
                                 }
                             }
                         }
-                        // No tasks scheduled at this time
+                        
                         if (subsubset.empty()) {
                             for (const auto& prev_node : nodes) {
                                 long long prev_cost = dp[{t - 1, prev_node, subset}];
@@ -326,7 +325,7 @@ int main() {
             }
         }
 
-        // Find optimal schedule
+        // find optimal scheduling
         int opt_time = -1;
         string opt_node;
         set<string> opt_subset;
@@ -345,7 +344,7 @@ int main() {
             }
         }
 
-        // Backtrack to assign tasks
+        // backtracking to assign tasks
         int done_tasks = 0;
         set<string> scheduled_tasks;
         map<int, map<string, set<string>>> assignments;
@@ -371,7 +370,6 @@ int main() {
             }
         }
 
-        // Greedy assignment for remaining tasks
         vector<string> remaining_tasks;
         for (const auto& task : all_tasks) {
             if (scheduling_details[task].start_time == -1) {
@@ -413,7 +411,7 @@ int main() {
                 }
                 if (assigned) break;
             }
-            // Try alternative assignment only if original assignment is not possible
+            
             if (!assigned) {
                 for (int t : time_slots) {
                     for (const auto& node : nodes) {
@@ -431,12 +429,13 @@ int main() {
                             }
                         }
                     }
-                    if (assigned) break;
+                    if (assigned) {
+                        break;
+                    }
                 }
             }
         }
 
-        // Calculate change count and execution cost
         int change_count = 0;
         long long execution_cost = 0;
         for (const auto& task : all_tasks) {
@@ -445,13 +444,10 @@ int main() {
                 if (prev_schedule.count(task) && (scheduling_details[task].start_time != prev_schedule[task].second ||
                                                   scheduling_details[task].node != prev_schedule[task].first)) {
                     change_count++;
-                } else if (task_names.count(task) && !prev_schedule.count(task)) {
-                    change_count++;
                 }
             }
         }
 
-        // Output
         json output;
         output["updated_schedule"] = json::object();
         for (const auto& [task, details] : scheduling_details) {
@@ -466,8 +462,6 @@ int main() {
         for (const auto& task : all_tasks) {
             if (prev_schedule.count(task) && (scheduling_details[task].start_time != prev_schedule[task].second ||
                                               scheduling_details[task].node != prev_schedule[task].first)) {
-                output["reassigned_tasks"].push_back(task);
-            } else if (task_names.count(task) && !prev_schedule.count(task) && scheduling_details[task].start_time != -1) {
                 output["reassigned_tasks"].push_back(task);
             }
         }
