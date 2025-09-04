@@ -1,0 +1,18 @@
+{
+  "schedule": {
+    "T1": {
+      "node": "N2",
+      "start_time": 0
+    },
+    "T2": {
+      "node": "N1",
+      "start_time": 0
+    },
+    "T3": {
+      "node": "N2",
+      "start_time": 1
+    }
+  },
+  "total_cost": 8,
+  "valid": true
+}
